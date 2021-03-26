@@ -1,9 +1,9 @@
 teahaz API client
 ===================================================
 
-## implemented/planned methods
+### implemented/planned methods
 **internal**
-* [ ] \_request
+* [x] \_request *-- needs testing*
 
 **basics**
 * [ ] login

@@ -58,12 +58,6 @@ class Client:
             return _response_key
 
 
-
-
-
-
-    
-
     # utils
     @staticmethod
     def dbg(*args,**kwargs):

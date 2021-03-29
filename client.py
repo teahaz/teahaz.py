@@ -5,6 +5,7 @@ import pickle
 import time
 import json
 import sys
+import os
 
 
 def encrypt_message(a):
@@ -18,6 +19,18 @@ def decrypt_message(a):
 
 def decrypt_binary(a):
     return base64.b64decode(str(a).encode('utf-8'))
+
+def sanitize_filename(a):
+    allowed = string.ascii_letters + string.digits + '_-.'
+    a = a.replace('..', '_')
+
+    filename = ''
+    for i in a:
+        if i not in allowed:
+            i = '_'
+        filename += i
+
+    return filename
 
 
 
@@ -140,11 +153,47 @@ class Client:
 
         return self._request('POST',url=url,json=data,callback=callback)
 
+    def send_file(self,path,replyid=None,callback=None):
+        def _send_chunks(fileobj,url,data,callback):
+            chunk_size = int((1048576*3)/4) - 1
+            content    = True
+            fileId     = None
+
+            while content:
+                chunk = fileobj.read(chunk_size)
+
+                if len(chunk) < chunk_size or f.tell() >= length:
+                    content = False
+
+                data['fileId'] = fileId
+                data['part']   = content
+                data['data']   = encrypt_binary(chunk)
+
+                resp = self._request('POST',url=url,json=data,join=True)
+                if not resp.status_code == 200:
+                    break
+                else:
+                    fileId = resp.text.strip(' ').strip('\n').strip('"')
+
+            fileobj.close()
+
+            if callback:
+                callback(resp)
 
 
-    
-    def send_file(self):
-        pass
+        url = self._url+'/api/v0/file/'+self._chatid
+
+        data = self._base_data.copy()
+        data['type']     = 'file'
+        data['replyId']  = replyid
+        data['filename'] = sanitize_filename(os.path.split(path)[1])
+
+        length = os.path.getsize(path)
+        fileobj = open(path,'rb+')
+        
+        t = threading.Thread(target=_send_chunks,args=(fileobj,url,data,callback))
+        t.start()
+        
 
 
     # GET
@@ -227,14 +276,17 @@ if __name__ == "__main__":
     # l = lambda resp: print(json.dumps([m for m in resp.json() if m['type'] == 'file'],indent=4))
 
     # l = lambda resp: {print(type(resp.json())),print(c.__dict__)}
-    # key = c.get_messages(0,callback=l)
+    l = lambda resp: print(resp.json())
+    key = c.get_messages(0,callback=l)
     # key = c.get_file('c13408dc-8e86-11eb-825b-0242ac110002',lambda data: write_file('out','wb',data))
-    key = c.send_message('this is an api test',replyid="5aff5620-8ff3-11eb-825b-0242ac110002")
+    # key = c.send_message('this is an api test',replyid="5aff5620-8ff3-11eb-825b-0242ac110002")
+    # key = c.send_file('out','5aff5620-8ff3-11eb-825b-0242ac110002')
+    print('hello')
 
-    while not c.is_set(key):
-        time.sleep(0.3)
+    # while not c.is_set(key):
+        # time.sleep(0.3)
 
-    print(c.get_response(key).text)
+    # print(c.get_response(key).text)
     # with open('out','wb') as f:
         # f.write(data)
 

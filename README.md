@@ -10,7 +10,7 @@ teahaz API client
 * [x] get_messages(since)
 * [x] get_file
 * [x] send_message
-* [ ] send_file
+* [x] send_file
 * [ ] create_invite
 * [ ] create_chatroom
 * [ ] use_invite

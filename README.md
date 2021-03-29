@@ -4,6 +4,7 @@ teahaz API client
 ### implemented/planned methods
 **internal**
 * [x] \_request
+* [x] \_register
 
 **basics**
 * [x] login
@@ -16,7 +17,8 @@ teahaz API client
 * [x] create_chatroom
 
 **utility**
-* [ ] set_chatroom
+* [x] add_new_server
+* [x] set_chatroom
 
 **events**
 * [ ] on_message

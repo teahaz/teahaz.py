@@ -38,6 +38,17 @@ def get_and_del(key,d):
         del d[key]
     return value
 
+def find_occurence(string,substring,num):
+    start = 0
+    index = 0
+    for _ in range(num):
+        index = string[start:].find(substring)
+        if index == -1:
+            break
+
+        start += index+1
+    return start
+
 
 class Client:
     def __init__(self):
@@ -46,7 +57,33 @@ class Client:
         self._session         = requests.Session()
         self._base_data       = { "User-Agent": "teahaz.py-v0.0" }
         self._responses       = {}
-        self._connection_data = {}
+        self._connection_data = {'servers': {}}
+        self.a_connection_data = {
+            "servers": {
+                "https://teahaz.co.uk": [
+                    {
+                        "chatroom_id": "1714e1a8-87ee-11eb-931c-0242ac110002",
+                        "chatroom_name": "conv1",
+                        "username": "alma"
+                    }
+                ]
+            }
+        }
+
+
+        self._connection_data_test = {
+                "servers": {
+                    "url": [
+                        'conv1'
+                        'conv2',
+                        'conv3',
+                    ]
+                },
+                "current": [
+                    'url',
+                    'conv2'
+                ]
+        }
 
     def run(self):
         pass
@@ -100,9 +137,8 @@ class Client:
         def _set_data(resp):
             if resp.status_code == 200:
                 data = resp.json()
-                self._base_data['username'] = username
-                self._chatid = data['chatroom']
-                self._chatname = data['name']
+                data['username'] = username
+                self.add_connection(url,data)
 
             if callable(callback):
                 callback(resp)
@@ -138,16 +174,41 @@ class Client:
     def get_response(self,key):
         return get_and_del(key,self._responses)
 
-    def add_connection(url,chatid):
-        data = self._connection_data
-        if url in data.keys():
-            data[url].append(chatid)
+    def get_chatroom(self,url,index):
+        if not url.endswith('/'):
+            url += '/'
+
+        return self._connection_data['servers'][url][index]
+
+    def add_connection(self,url,chatroom_dict,_set=True):
+        data = self._connection_data['servers']
+
+        url = url.strip('/')
+        if url.count('/') > 2:
+            end = find_occurence(url,'/',3)
+            url = url[:end]
+
+        if not url.endswith('/'):
+            url += '/'
+
+        if url in self._connection_data['servers'].keys():
+            data[url].append(chatroom_dict)
         else:
-            data[url] = [chatid]
+            data[url] = [chatroom_dict]
 
-    def set_chatroom(self,url,index):
-        pass
+        if _set:
+            self.set_chatroom(url,chatroom_dict)
 
+    def set_chatroom(self,url,chatroom_dict):
+        data = self._connection_data
+
+        assert url in data['servers'].keys()
+
+        self._url                   = url
+        self._chatid                = chatroom_dict.get('chatroom')
+        self._chatname              = chatroom_dict.get('name')
+        self._base_data['username'] = chatroom_dict.get('username')
+        
 
     # POST
     def login(self,username,password,callback=None,url=None,join=False):
@@ -225,8 +286,7 @@ class Client:
         t = threading.Thread(target=_send_chunks,args=(fileobj,url,data,callback))
         t.start()
 
-
-    def use_invite(self,inviteId,username,nickname,password,email=None,callback=None,join=False):
+    def use_invite(self,inviteId,username,nickname,password,url=None,email=None,callback=None,join=False):
         data = {}
         data['inviteId'] = inviteId
         data['username'] = username
@@ -234,11 +294,15 @@ class Client:
         data['password'] = password
         data['email']    = email
         data['join']     = join
-        data['url']      = self._url+'/api/v0/invite/'+self._chatid
+        if url is None:
+            url = self._url
+
+        assert url is not None,'url is not set! add it to parameters of create_chatroom'
+        data['url']      = url+'/api/v0/invite/'+self._chatid
 
         return self._register(data)
         
-    def create_chatroom(self,chatroom_name,username,nickname,password,email=None,callback=None,join=False):
+    def create_chatroom(self,chatroom_name,username,nickname,password,url=None,email=None,callback=None,join=False):
         data = {}
         data['chatroom_name'] = chatroom_name
         data['username']      = username
@@ -246,7 +310,11 @@ class Client:
         data['password']      = password
         data['email']         = email
         data['join']          = join
-        data['url']           = self._url+'/api/v0/chatroom/'
+        if url is None:
+            url = self._url
+
+        assert url is not None,'url is not set! add it to parameters of create_chatroom'
+        data['url']      = url+'/api/v0/chatroom/'
 
         return self._register(data)
         
@@ -321,29 +389,20 @@ class Client:
     def on_message(self,messages):
         pass
 
-def write_file(name,param,data):
-    with open(name,param) as f:
-        f.write(data)
-
 
 if __name__ == "__main__":
+    print('\033[2J')
     # c = Client()
     with open('client.obj','rb') as f:
         c = pickle.load(f)
-        # print(c._base_data)
-
+        print(c._base_data)
 
 
     # add stuff involving `key` here
 
 
-
-    while not c.is_set(key):
-        time.sleep(0.1)
-
-    print(c.get_response(key).text)
-    print(c._base_data)
-    print(c._chatname)
+    # while not c.is_set(key):
+        # time.sleep(0.1)
 
     with open('client.obj','wb') as f:
         pickle.dump(c,f)

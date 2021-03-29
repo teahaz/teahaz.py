@@ -4,6 +4,7 @@ import base64
 import pickle
 import time
 import json
+import sys
 
 
 def encrypt_message(a):
@@ -161,28 +162,74 @@ class Client:
 
         return self._request('GET',url=url,headers=data,callback=_decrypt_messages)
 
-    def get_file(self,filename):
-        pass
+    def get_file(self,fileid,callback):
+        def _build_file(url,headers,callback):
+            section = 0
+            data = b''
+            while True:
+                headers['section'] = str(section + 1)
+                section += 1
+
+                resp = self._request('GET',url=url,headers=headers,join=True)
+                if resp.status_code == 200:
+                    stripped = resp.text.strip(' ').strip('\n').strip('"')
+                    
+                    if not len(stripped):
+                        break
+                    else:
+                        try:
+                            data += decrypt_binary(stripped)
+                        except:
+                            data = b'Corrupt'
+                            break
+                else:
+                    break
+
+            callback(data)
+
+        headers = self._base_data.copy()
+        headers['fileId'] = fileid
+
+        url = self._url+'/api/v0/file/'+self._chatid
+
+        t = threading.Thread(target=_build_file,args=(url,headers,callback))
+        t.start()
 
 
     # events
     def on_message(self,messages):
         pass
 
+def write_file(name,param,data):
+    with open(name,param) as f:
+        f.write(data)
+
+
 if __name__ == "__main__":
     # c = Client()
     with open('client.obj','rb') as f:
         c = pickle.load(f)
-        print(c.__dict__)
+        # print(c.__dict__)
 
     # c._chatid = "1714e1a8-87ee-11eb-931c-0242ac110002"
 
-    l = lambda resp: {print(type(resp.json())),print(c.__dict__)}
     # key = c.login('alma','1234567890',url='https://teahaz.co.uk',callback=l,join=True)
-    # key = c.get_messages(0,callback=l)
 
-    while not c.is_set(key):
-        time.sleep(0.3)
+    # get all files
+    # l = lambda resp: print(json.dumps([m for m in resp.json() if m['type'] == 'file'],indent=4))
+
+    # l = lambda resp: {print(type(resp.json())),print(c.__dict__)}
+    # key = c.get_messages(0,callback=l)
+    key = c.get_file('c13408dc-8e86-11eb-825b-0242ac110002',lambda data: write_file('out','wb',data))
+    print('loading')
+
+    # while not c.is_set(key):
+        # time.sleep(0.3)
+
+    # with open('out','wb') as f:
+        # f.write(data)
+
+    # print('done')
 
     # print(json.dumps(c.get_response(key)[-1],indent=4))
 

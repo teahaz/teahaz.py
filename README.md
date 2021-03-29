@@ -8,7 +8,7 @@ teahaz API client
 **basics**
 * [x] login
 * [x] get_messages(since)
-* [ ] get_file
+* [x] get_file
 * [ ] send_message
 * [ ] send_file
 * [ ] create_invite

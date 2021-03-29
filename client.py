@@ -32,6 +32,11 @@ def sanitize_filename(a):
 
     return filename
 
+def get_and_del(key,d):
+    value = d.get(key)
+    if value is not None:
+        del d[key]
+    return value
 
 
 class Client:
@@ -91,6 +96,40 @@ class Client:
             # return key to future response
             return _response_key
 
+    def _register(self,kwargs):
+        def _set_data(resp):
+            if resp.status_code == 200:
+                data = resp.json()
+                self._base_data['username'] = username
+                self._chatid = data['chatroom']
+                self._chatname = data['name']
+
+            if callable(callback):
+                callback(resp)
+
+            return resp
+
+        data = self._base_data.copy()
+
+        # set up function params
+        data['email']    = get_and_del('email',kwargs)
+        callback         = get_and_del('callback',kwargs)
+        join             = get_and_del('join',kwargs)
+        url              = get_and_del('url',kwargs)
+        username         = kwargs.get('username')
+
+        # set up compulsory values
+        data['username'] = username
+        data['nickname'] = kwargs.get('nickname')
+        data['password'] = kwargs.get('password')
+        for key,value in kwargs.items():
+            data[key] = value
+
+        # assert not any(val is None for val in data.values())
+        assert url is not None
+
+        return self._request('POST',url=url,json=data,callback=_set_data,join=join)
+
 
     # utils
     @staticmethod
@@ -101,11 +140,7 @@ class Client:
         return key in self._responses.keys()
 
     def get_response(self,key):
-        value = self._responses.get(key)
-        if value is not None:
-            del self._responses[key]
-
-        return value
+        return get_and_del(key,self._responses)
 
     def add_connection(url,chatid):
         data = self._connection_data
@@ -194,34 +229,21 @@ class Client:
         t = threading.Thread(target=_send_chunks,args=(fileobj,url,data,callback))
         t.start()
 
-    def use_invite(self,inviteid,username,nickname,password,email=None,callback=None,join=False):
-        def _set_data(resp):
-            if resp.status_code == 200:
-                data = resp.json()
-                self._base_data['username'] = username
-                self._chatid = data['chatroom']
-                self._chatname = data['name']
 
-            if callable(callback):
-                callback(resp)
-
-            return resp
-
-
+    def use_invite(self,inviteId,username,nickname,password,email=None,callback=None,join=False):
         data = self._base_data.copy()
-        data['inviteId'] = inviteid
+        data['inviteId'] = inviteId
         data['username'] = username
         data['nickname'] = nickname
         data['password'] = password
         data['email']    = email
+        data['url']      = self._url+'/api/v0/invite/'+self._chatid
 
-        url = self._url+'/api/v0/invite/'+self._chatid
-
-        return self._request('POST',url=url,json=data,callback=_set_data,join=join)
+        return self._register(data)
         
+    def create_chatroom(self,username,nickname,password,email=None,callback=None,join=False):
+        pass
         
-        
-
 
     # GET
     def get_messages(self,since,callback=None):
@@ -304,17 +326,14 @@ if __name__ == "__main__":
         c = pickle.load(f)
         # print(c._base_data)
 
-    # c._chatid = "3bfb6118-8aff-11eb-b3d7-0242ac110002"
-    # key = c.login('alma','1234567890',url='https://teahaz.co.uk',callback=l,join=True)
-    # key = c.login('eper','1234567890',url='https://teahaz.co.uk',callback=l,join=True)
+    
 
     while not c.is_set(key):
         time.sleep(0.1)
 
-    # print(c.get_response(key).text)
-    # print(c._base_data)
-    # print(c._chatid)
-    # print(c._chatname)
+    print(c.get_response(key).text)
+    print(c._base_data)
+    print(c._chatname)
 
     with open('client.obj','wb') as f:
         pickle.dump(c,f)

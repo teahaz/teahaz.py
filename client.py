@@ -35,10 +35,11 @@ class Client:
         # TODO: maybe add conn_start & conn_end callbacks?
         def _do_request(_response_key,*args,**kwargs):
             resp = _method(*args,**kwargs)
-            self._response[_response_key] = resp
 
             if callback:
-                callback(resp)
+                self._responses[_response_key] = callback(resp)
+            else:
+                self._responses[_response_key] = resp
 
         if method == "POST":
             _method = self._session.post
@@ -63,6 +64,16 @@ class Client:
     def dbg(*args,**kwargs):
         print(**args,**kwargs)
 
+    def is_set(self,key):
+        return key in self._responses.keys()
+
+    def get_response(self,key):
+        value = self._responses.get(key)
+        if value is not None:
+            del self._responses[key]
+
+        return value
+
     def add_connection(url,chatid):
         data = self._connection_data
         if url in data.keys():
@@ -75,8 +86,31 @@ class Client:
 
 
     # POST
-    def login(self):
-        pass
+    def login(self,username,password,callback=None,url=None,join=False):
+        def _set_data(resp):
+            if resp.status_code == 200:
+                data = json.loads(resp.text)
+                self._base_data['username'] = username
+                self._chatid = data['chatroom']
+                self._chatname = data['name']
+            
+            if callable(callback):
+                callback(resp)
+
+        if url == None:
+            url = self._url
+        else:
+            self._url = url
+
+        url += '/login/'+self._chatid
+
+        data = self._base_data.copy()
+        data['username'] = username
+        data['password'] = password
+
+        return self._request('POST',url=url,json=data,callback=_set_data,join=join)
+
+
 
     def send_message(self):
         pass

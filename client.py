@@ -252,6 +252,15 @@ class Client:
         t = threading.Thread(target=_build_file,args=(url,headers,callback))
         t.start()
 
+    def get_invite(self,expire_time,uses):
+        data = self._base_data.copy()
+        data['expr-time'] = str(expire_time)
+        data['uses']      = str(uses)
+
+        url = self._url+'/api/v0/invite/'+self._chatid
+
+        return self._request('GET',url=url,headers=data)
+
 
     # events
     def on_message(self,messages):
@@ -277,16 +286,17 @@ if __name__ == "__main__":
 
     # l = lambda resp: {print(type(resp.json())),print(c.__dict__)}
     l = lambda resp: print(resp.json())
-    key = c.get_messages(0,callback=l)
+    # key = c.get_messages(0,callback=l)
+    key = c.get_invite(1,1)
     # key = c.get_file('c13408dc-8e86-11eb-825b-0242ac110002',lambda data: write_file('out','wb',data))
     # key = c.send_message('this is an api test',replyid="5aff5620-8ff3-11eb-825b-0242ac110002")
     # key = c.send_file('out','5aff5620-8ff3-11eb-825b-0242ac110002')
     print('hello')
 
-    # while not c.is_set(key):
-        # time.sleep(0.3)
+    while not c.is_set(key):
+        time.sleep(0.3)
 
-    # print(c.get_response(key).text)
+    print(c.get_response(key).text)
     # with open('out','wb') as f:
         # f.write(data)
 

@@ -1,5 +1,7 @@
+from cryptography.fernet import Fernet
 import threading
 import requests
+import hashlib
 import string
 import base64
 import pickle

@@ -15,6 +15,8 @@ teahaz API client
 * [x] create_invite
 * [x] use_invite
 * [x] create_chatroom
+* [x] get_by_id
+* [ ] message_delete
 
 **utility**
 * [x] add_new_server
@@ -23,5 +25,3 @@ teahaz API client
 **events**
 * [ ] on_message
 * [ ] on_download(percentage/status)
-
-

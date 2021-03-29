@@ -211,23 +211,32 @@ class Client:
         
 
     # POST
-    def login(self,username,password,callback=None,url=None,join=False):
+    def login(self,username,password,callback=None,url=None,chatid=None,join=False):
         def _set_data(resp):
             if resp.status_code == 200:
                 data = resp.json()
                 self._base_data['username'] = username
                 self._chatid = data['chatroom']
                 self._chatname = data['name']
+            else:
+                return resp
             
             if callable(callback):
                 callback(resp)
+
 
         if url == None:
             url = self._url
         else:
             self._url = url
 
-        url += '/login/'+self._chatid
+        if chatid == None:
+            chatid = self._chatid
+        else:
+            self._chatid = chatid
+        print(url,chatid)
+
+        url += '/login/'+chatid
 
         data = self._base_data.copy()
         data['username'] = username
@@ -330,11 +339,14 @@ class Client:
                             m['message'] = decrypt_message(m['message'])
                         except:
                             continue
+            else:
+                return resp
 
-            if callback:
+            if callable(callback):
                 callback(resp)
 
             return messages
+
 
         data = self._base_data.copy()
         data['time'] = str(since)
@@ -383,6 +395,28 @@ class Client:
         url = self._url+'/api/v0/invite/'+self._chatid
 
         return self._request('GET',url=url,headers=data,join=join)
+    
+    def get_by_id(self,messageId,callback=None,join=False):
+        def _decrypt_message(resp):
+            if resp.status_code == 200:
+                message = resp.json()[0]
+                if message.get('type') == 'text':
+                    message['message'] = decrypt_message(message['message'])
+            else:
+                return resp
+
+            if callable(callback):
+                callback(resp)
+
+            return message
+
+
+        data = self._base_data.copy()
+        data['messageId'] = messageId
+
+        url = self._url+'/api/v0/message/'+self._chatid
+
+        return self._request('GET',url=url,headers=data,callback=_decrypt_message,join=join)
 
 
     # events
@@ -398,12 +432,9 @@ if __name__ == "__main__":
         print(c._base_data)
 
 
-    # add stuff involving `key` here
-
-
     # while not c.is_set(key):
         # time.sleep(0.1)
 
-    with open('client.obj','wb') as f:
-        pickle.dump(c,f)
+    # with open('client.obj','wb') as f:
+        # pickle.dump(c,f)
 

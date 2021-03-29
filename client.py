@@ -1,12 +1,31 @@
 import threading
 import requests
+import base64
+import pickle
 import time
+import json
+
+
+def encrypt_message(a):
+    return base64.b64encode(str(a).encode('utf-8')).decode('utf-8')
+
+def encrypt_binary(a):
+    return base64.b64encode(a).decode('utf-8')
+
+def decrypt_message(a):
+    return base64.b64decode(str(a).encode('utf-8')).decode('utf-8')
+
+def decrypt_binary(a):
+    return base64.b64decode(str(a).encode('utf-8'))
+
+
 
 class Client:
     def __init__(self):
         self._url             = None
         self._chatid          = None
         self._session         = requests.Session()
+        self._base_data       = { "User-Agent": "teahaz.py-v0.0" }
         self._responses       = {}
         self._connection_data = {}
 
@@ -47,7 +66,7 @@ class Client:
             _method = self._session.get
 
         _response_key = int(time.time())
-        _handler = threading.Thread(_do_request,args=(response_key,)+request_args,kwargs=request_kwargs)
+        _handler = threading.Thread(target=_do_request,args=(_response_key,)+request_args,kwargs=request_kwargs)
         _handler.start()
 
         if join:
@@ -120,15 +139,54 @@ class Client:
 
 
     # GET
-    ## might be done from main loop
-    def _get_messages(self):
-        pass
+    def get_messages(self,since,callback=None):
+        def _decrypt_messages(resp):
+            if resp.status_code == 200:
+                messages = resp.json()
+                for m in messages:
+                    if m.get('type') == 'text':
+                        try:
+                            m['message'] = decrypt_message(m['message'])
+                        except:
+                            continue
 
-    def get_file(self):
+            if callback:
+                callback(resp)
+
+            return messages
+
+        data = self._base_data.copy()
+        data['time'] = str(since)
+        url = self._url+'/api/v0/message/'+self._chatid
+
+        return self._request('GET',url=url,headers=data,callback=_decrypt_messages)
+
+    def get_file(self,filename):
         pass
 
 
     # events
+    def on_message(self,messages):
+        pass
 
 if __name__ == "__main__":
-    c = Client()
+    # c = Client()
+    with open('client.obj','rb') as f:
+        c = pickle.load(f)
+        print(c.__dict__)
+
+    # c._chatid = "1714e1a8-87ee-11eb-931c-0242ac110002"
+
+    l = lambda resp: {print(type(resp.json())),print(c.__dict__)}
+    # key = c.login('alma','1234567890',url='https://teahaz.co.uk',callback=l,join=True)
+    # key = c.get_messages(0,callback=l)
+
+    while not c.is_set(key):
+        time.sleep(0.3)
+
+    # print(json.dumps(c.get_response(key)[-1],indent=4))
+
+
+    with open('client.obj','wb') as f:
+        pickle.dump(c,f)
+

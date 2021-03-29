@@ -3,11 +3,11 @@ teahaz API client
 
 ### implemented/planned methods
 **internal**
-* [x] \_request *-- needs testing*
+* [x] \_request
 
 **basics**
-* [ ] login
-* [ ] get_messages
+* [x] login
+* [x] get_messages(since)
 * [ ] get_file
 * [ ] send_message
 * [ ] send_file

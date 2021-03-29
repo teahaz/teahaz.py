@@ -120,6 +120,10 @@ class Client:
             _method = self._session.post
         elif method == "GET":
             _method = self._session.get
+        elif method == "DELETE":
+            _method = self._session.delete
+        else:
+            raise Exception('what is this method lol',str(method))
 
         _response_key = int(time.time())
         _handler = threading.Thread(target=_do_request,args=(_response_key,)+request_args,kwargs=request_kwargs)
@@ -188,9 +192,6 @@ class Client:
             end = find_occurence(url,'/',3)
             url = url[:end]
 
-        if not url.endswith('/'):
-            url += '/'
-
         if url in self._connection_data['servers'].keys():
             data[url].append(chatroom_dict)
         else:
@@ -234,7 +235,6 @@ class Client:
             chatid = self._chatid
         else:
             self._chatid = chatid
-        print(url,chatid)
 
         url += '/login/'+chatid
 
@@ -419,6 +419,17 @@ class Client:
         return self._request('GET',url=url,headers=data,callback=_decrypt_message,join=join)
 
 
+    # DELETE
+    def delete_message(self,messageId,callback=None,join=False):
+        data = self._base_data.copy()
+        data['messageId'] = messageId
+
+        url = self._url+'/api/v0/message/'+self._chatid
+
+        return self._request('DELETE',url=url,json=data,callback=callback,join=join)
+
+
+
     # events
     def on_message(self,messages):
         pass
@@ -429,8 +440,7 @@ if __name__ == "__main__":
     # c = Client()
     with open('client.obj','rb') as f:
         c = pickle.load(f)
-        print(c._base_data)
-
+        # print(c._base_data)
 
     # while not c.is_set(key):
         # time.sleep(0.1)

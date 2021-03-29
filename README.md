@@ -16,7 +16,7 @@ teahaz API client
 * [x] use_invite
 * [x] create_chatroom
 * [x] get_by_id
-* [ ] message_delete
+* [x] message_delete
 
 **utility**
 * [x] add_new_server

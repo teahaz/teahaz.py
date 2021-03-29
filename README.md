@@ -13,7 +13,7 @@ teahaz API client
 * [x] send_file
 * [x] create_invite
 * [x] use_invite
-* [ ] create_chatroom
+* [x] create_chatroom
 
 **utility**
 * [ ] set_chatroom

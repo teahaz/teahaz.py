@@ -132,10 +132,6 @@ class Client:
 
 
     # utils
-    @staticmethod
-    def dbg(*args,**kwargs):
-        print(**args,**kwargs)
-
     def is_set(self,key):
         return key in self._responses.keys()
 
@@ -231,22 +227,32 @@ class Client:
 
 
     def use_invite(self,inviteId,username,nickname,password,email=None,callback=None,join=False):
-        data = self._base_data.copy()
+        data = {}
         data['inviteId'] = inviteId
         data['username'] = username
         data['nickname'] = nickname
         data['password'] = password
         data['email']    = email
+        data['join']     = join
         data['url']      = self._url+'/api/v0/invite/'+self._chatid
 
         return self._register(data)
         
-    def create_chatroom(self,username,nickname,password,email=None,callback=None,join=False):
-        pass
+    def create_chatroom(self,chatroom_name,username,nickname,password,email=None,callback=None,join=False):
+        data = {}
+        data['chatroom_name'] = chatroom_name
+        data['username']      = username
+        data['nickname']      = nickname
+        data['password']      = password
+        data['email']         = email
+        data['join']          = join
+        data['url']           = self._url+'/api/v0/chatroom/'
+
+        return self._register(data)
         
 
     # GET
-    def get_messages(self,since,callback=None):
+    def get_messages(self,since,callback=None,join=False):
         def _decrypt_messages(resp):
             if resp.status_code == 200:
                 messages = resp.json()
@@ -266,7 +272,7 @@ class Client:
         data['time'] = str(since)
         url = self._url+'/api/v0/message/'+self._chatid
 
-        return self._request('GET',url=url,headers=data,callback=_decrypt_messages)
+        return self._request('GET',url=url,headers=data,callback=_decrypt_messages,join=join)
 
     def get_file(self,fileid,callback):
         def _build_file(url,headers,callback):
@@ -301,14 +307,14 @@ class Client:
         t = threading.Thread(target=_build_file,args=(url,headers,callback))
         t.start()
 
-    def get_invite(self,expire_time,uses):
+    def get_invite(self,expire_time,uses,join=False):
         data = self._base_data.copy()
         data['expr-time'] = str(expire_time)
         data['uses']      = str(uses)
 
         url = self._url+'/api/v0/invite/'+self._chatid
 
-        return self._request('GET',url=url,headers=data)
+        return self._request('GET',url=url,headers=data,join=join)
 
 
     # events
@@ -326,7 +332,11 @@ if __name__ == "__main__":
         c = pickle.load(f)
         # print(c._base_data)
 
-    
+
+
+    # add stuff involving `key` here
+
+
 
     while not c.is_set(key):
         time.sleep(0.1)

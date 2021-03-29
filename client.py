@@ -130,10 +130,18 @@ class Client:
 
         return self._request('POST',url=url,json=data,callback=_set_data,join=join)
 
+    def send_message(self,text,replyid=None,callback=None):
+        data = self._base_data.copy()
+        data['type'] = 'text'
+        data['message'] = encrypt_message(text)
+        data['replyId'] = replyid
+
+        url = self._url+'/api/v0/message/'+self._chatid
+
+        return self._request('POST',url=url,json=data,callback=callback)
 
 
-    def send_message(self):
-        pass
+
     
     def send_file(self):
         pass
@@ -220,12 +228,13 @@ if __name__ == "__main__":
 
     # l = lambda resp: {print(type(resp.json())),print(c.__dict__)}
     # key = c.get_messages(0,callback=l)
-    key = c.get_file('c13408dc-8e86-11eb-825b-0242ac110002',lambda data: write_file('out','wb',data))
-    print('loading')
+    # key = c.get_file('c13408dc-8e86-11eb-825b-0242ac110002',lambda data: write_file('out','wb',data))
+    key = c.send_message('this is an api test',replyid="5aff5620-8ff3-11eb-825b-0242ac110002")
 
-    # while not c.is_set(key):
-        # time.sleep(0.3)
+    while not c.is_set(key):
+        time.sleep(0.3)
 
+    print(c.get_response(key).text)
     # with open('out','wb') as f:
         # f.write(data)
 

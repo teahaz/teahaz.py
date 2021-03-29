@@ -122,7 +122,7 @@ class Client:
     def login(self,username,password,callback=None,url=None,join=False):
         def _set_data(resp):
             if resp.status_code == 200:
-                data = json.loads(resp.text)
+                data = resp.json()
                 self._base_data['username'] = username
                 self._chatid = data['chatroom']
                 self._chatname = data['name']
@@ -143,7 +143,7 @@ class Client:
 
         return self._request('POST',url=url,json=data,callback=_set_data,join=join)
 
-    def send_message(self,text,replyid=None,callback=None):
+    def send_message(self,text,replyid=None,callback=None,join=False):
         data = self._base_data.copy()
         data['type'] = 'text'
         data['message'] = encrypt_message(text)
@@ -151,9 +151,9 @@ class Client:
 
         url = self._url+'/api/v0/message/'+self._chatid
 
-        return self._request('POST',url=url,json=data,callback=callback)
+        return self._request('POST',url=url,json=data,callback=callback,join=join)
 
-    def send_file(self,path,replyid=None,callback=None):
+    def send_file(self,path,replyid=None,callback=None,join=False):
         def _send_chunks(fileobj,url,data,callback):
             chunk_size = int((1048576*3)/4) - 1
             content    = True
@@ -193,6 +193,33 @@ class Client:
         
         t = threading.Thread(target=_send_chunks,args=(fileobj,url,data,callback))
         t.start()
+
+    def use_invite(self,inviteid,username,nickname,password,email=None,callback=None,join=False):
+        def _set_data(resp):
+            if resp.status_code == 200:
+                data = resp.json()
+                self._base_data['username'] = username
+                self._chatid = data['chatroom']
+                self._chatname = data['name']
+
+            if callable(callback):
+                callback(resp)
+
+            return resp
+
+
+        data = self._base_data.copy()
+        data['inviteId'] = inviteid
+        data['username'] = username
+        data['nickname'] = nickname
+        data['password'] = password
+        data['email']    = email
+
+        url = self._url+'/api/v0/invite/'+self._chatid
+
+        return self._request('POST',url=url,json=data,callback=_set_data,join=join)
+        
+        
         
 
 
@@ -229,7 +256,7 @@ class Client:
 
                 resp = self._request('GET',url=url,headers=headers,join=True)
                 if resp.status_code == 200:
-                    stripped = resp.text.strip(' ').strip('\n').strip('"')
+                    stripped = resp.json()
                     
                     if not len(stripped):
                         break
@@ -275,35 +302,19 @@ if __name__ == "__main__":
     # c = Client()
     with open('client.obj','rb') as f:
         c = pickle.load(f)
-        # print(c.__dict__)
+        # print(c._base_data)
 
-    # c._chatid = "1714e1a8-87ee-11eb-931c-0242ac110002"
-
+    # c._chatid = "3bfb6118-8aff-11eb-b3d7-0242ac110002"
     # key = c.login('alma','1234567890',url='https://teahaz.co.uk',callback=l,join=True)
-
-    # get all files
-    # l = lambda resp: print(json.dumps([m for m in resp.json() if m['type'] == 'file'],indent=4))
-
-    # l = lambda resp: {print(type(resp.json())),print(c.__dict__)}
-    l = lambda resp: print(resp.json())
-    # key = c.get_messages(0,callback=l)
-    key = c.get_invite(1,1)
-    # key = c.get_file('c13408dc-8e86-11eb-825b-0242ac110002',lambda data: write_file('out','wb',data))
-    # key = c.send_message('this is an api test',replyid="5aff5620-8ff3-11eb-825b-0242ac110002")
-    # key = c.send_file('out','5aff5620-8ff3-11eb-825b-0242ac110002')
-    print('hello')
+    # key = c.login('eper','1234567890',url='https://teahaz.co.uk',callback=l,join=True)
 
     while not c.is_set(key):
-        time.sleep(0.3)
+        time.sleep(0.1)
 
-    print(c.get_response(key).text)
-    # with open('out','wb') as f:
-        # f.write(data)
-
-    # print('done')
-
-    # print(json.dumps(c.get_response(key)[-1],indent=4))
-
+    # print(c.get_response(key).text)
+    # print(c._base_data)
+    # print(c._chatid)
+    # print(c._chatname)
 
     with open('client.obj','wb') as f:
         pickle.dump(c,f)

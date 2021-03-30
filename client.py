@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 from urllib.parse import urlparse
+=======
+from cryptography.fernet import Fernet
+>>>>>>> a08f283ebfe29be6e7f898f8f9d7a0df4742afcb
 import threading
 import requests
+import hashlib
+import string
 import base64
 import pickle
 import time
@@ -9,6 +15,7 @@ import sys
 import os
 
 
+# ENCRYPTION/DECRYPTION
 def encrypt_message(a):
     return base64.b64encode(str(a).encode('utf-8')).decode('utf-8')
 
@@ -21,8 +28,24 @@ def decrypt_message(a):
 def decrypt_binary(a):
     return base64.b64decode(str(a).encode('utf-8'))
 
+def _gen_token(a):
+    "Generating token out of password, so It cannot be reversed"
+    return base64.urlsafe_b64encode(str(hashlib.sha256(a.encode('utf-8')).digest())[:32].encode('utf-8'))
+
+def _encrpt_string(string, token):
+    "Encrypts a string given to it"
+    f = Fernet(token)
+    enc = f.encrypt(string.encode('utf-8'))
+    return enc.decode('utf-8')
+
+def _decrypt_string(encrypted_string, token):
+    "Decrypts a string given to it"
+    f = Fernet(token)
+    dec = f.decrypt(encrypted_string.encode('utf-8'))
+    return dec.decode('utf-8')
 
 
+# HELPERS
 def sanitize_filename(a):
     allowed = string.ascii_letters + string.digits + '_-.'
     a = a.replace('..', '_')

@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-from urllib.parse import urlparse
-=======
 from cryptography.fernet import Fernet
->>>>>>> a08f283ebfe29be6e7f898f8f9d7a0df4742afcb
+from urllib.parse import urlparse
 import threading
 import requests
 import hashlib

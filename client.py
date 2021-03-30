@@ -1,3 +1,4 @@
+from urllib.parse import urlparse
 import threading
 import requests
 import base64
@@ -19,6 +20,8 @@ def decrypt_message(a):
 
 def decrypt_binary(a):
     return base64.b64decode(str(a).encode('utf-8'))
+
+
 
 def sanitize_filename(a):
     allowed = string.ascii_letters + string.digits + '_-.'
@@ -49,44 +52,95 @@ def find_occurence(string,substring,num):
         start += index+1
     return start
 
+def interactive(function):
+    import inspect
+    assert callable(function)
+
+    sig = inspect.signature(function)
+
+    data = ()
+    for i,(name,param) in enumerate(sig.parameters.items()):
+        inp = input(name+': ')
+
+        if inp.isdigit() and len(inp) == 1:
+            inp = int(inp)
+            data += (inp,)
+        elif len(inp):
+            data += (inp,)
+        else:
+            data += (param.default,)
+
+    print('\n')
+    print('calling\033[38;5;35m',function.__name__+'\033[m with\033[38;5;35m',data,'\033[m')
+
+    ret = function(*data)
+    print('return:',ret)
+
+    return ret
+
+
 
 class Client:
     def __init__(self):
-        self._url             = None
-        self._chatid          = None
+        # internal data
         self._session         = requests.Session()
         self._base_data       = { "User-Agent": "teahaz.py-v0.0" }
         self._responses       = {}
+        self._last_check      = '0'
         self._connection_data = {'servers': {}}
-        self.a_connection_data = {
-            "servers": {
-                "https://teahaz.co.uk": [
-                    {
-                        "chatroom_id": "1714e1a8-87ee-11eb-931c-0242ac110002",
-                        "chatroom_name": "conv1",
-                        "username": "alma"
-                    }
-                ]
-            }
-        }
 
+        # public data
+        self.url              = None
+        self.chatid           = None
+        self.check_frequency  = 0.5
 
-        self._connection_data_test = {
-                "servers": {
-                    "url": [
-                        'conv1'
-                        'conv2',
-                        'conv3',
-                    ]
-                },
-                "current": [
-                    'url',
-                    'conv2'
-                ]
-        }
+        # flags
+        self._is_stopped      = False
 
-    def run(self):
-        pass
+    def run(self,url=None,chatid=None,username=None,password=None,frequency=None):
+        if url is None:
+            url = self.url
+
+        if chatid is None:
+            chatid = self.chatid
+
+        if frequency is None:
+            frequency = self.check_frequency
+
+        assert url       is not None
+        assert chatid    is not None
+        assert frequency is not None
+
+        if not self.is_connected(url):
+            assert username is not None,"Not logged in to {url} and no username given."
+            assert password is not None,"Not logged in to {url} and no password given."
+
+            resp = self.login(username=username,password=password,url=url,chatid=chatid,join=True)
+            if resp is not None:
+                print(resp.json())
+                return resp
+
+        start = True
+        username = self._base_data.get('username')
+
+        self.on_ready()
+        while not self._is_stopped:
+            if not start:
+                time.sleep(self.check_frequency)
+
+            if self.is_paused():
+                continue
+
+            get_time         = self._last_check
+            self._last_check = str(time.time())
+
+            messages = self.get_messages(get_time,join=True)
+            filtered = [m for m in messages if not m.get('username') == username]
+            if len(filtered) and not start:
+                threading.Thread(target=self.on_message,args=(filtered,)).start()
+
+            start = False
+            time.sleep(self.check_frequency)
 
 
     # internal
@@ -143,11 +197,11 @@ class Client:
                 data = resp.json()
                 data['username'] = username
                 self.add_connection(url,data)
+            else:
+                return resp
 
             if callable(callback):
                 callback(resp)
-
-            return resp
 
         data = self._base_data.copy()
 
@@ -174,6 +228,9 @@ class Client:
     # utils
     def is_set(self,key):
         return key in self._responses.keys()
+
+    def is_paused(self):
+        return False
 
     def get_response(self,key):
         return get_and_del(key,self._responses)
@@ -205,19 +262,26 @@ class Client:
 
         assert url in data['servers'].keys()
 
-        self._url                   = url
-        self._chatid                = chatroom_dict.get('chatroom')
+        self.url                   = url
+        self.chatid                = chatroom_dict.get('chatroom')
         self._chatname              = chatroom_dict.get('name')
         self._base_data['username'] = chatroom_dict.get('username')
-        
 
+    def is_connected(self,url):
+        for cookie in self._session.cookies:
+            if cookie.domain == urlparse(url).netloc.split(':')[0]:
+                return True
+        else:
+            return False
+
+        
     # POST
     def login(self,username,password,callback=None,url=None,chatid=None,join=False):
         def _set_data(resp):
             if resp.status_code == 200:
                 data = resp.json()
                 self._base_data['username'] = username
-                self._chatid = data['chatroom']
+                self.chatid = data['chatroom']
                 self._chatname = data['name']
             else:
                 return resp
@@ -227,14 +291,14 @@ class Client:
 
 
         if url == None:
-            url = self._url
+            url = self.url
         else:
-            self._url = url
+            self.url = url
 
         if chatid == None:
-            chatid = self._chatid
+            chatid = self.chatid
         else:
-            self._chatid = chatid
+            self.chatid = chatid
 
         url += '/login/'+chatid
 
@@ -250,7 +314,7 @@ class Client:
         data['message'] = encrypt_message(text)
         data['replyId'] = replyid
 
-        url = self._url+'/api/v0/message/'+self._chatid
+        url = self.url+'/api/v0/message/'+self.chatid
 
         return self._request('POST',url=url,json=data,callback=callback,join=join)
 
@@ -282,7 +346,7 @@ class Client:
                 callback(resp)
 
 
-        url = self._url+'/api/v0/file/'+self._chatid
+        url = self.url+'/api/v0/file/'+self.chatid
 
         data = self._base_data.copy()
         data['type']     = 'file'
@@ -295,7 +359,8 @@ class Client:
         t = threading.Thread(target=_send_chunks,args=(fileobj,url,data,callback))
         t.start()
 
-    def use_invite(self,inviteId,username,nickname,password,url=None,email=None,callback=None,join=False):
+    # TODO: add assertions for chatid
+    def use_invite(self,inviteId,username,nickname,password,url=None,chatid=None,email=None,callback=None,join=False):
         data = {}
         data['inviteId'] = inviteId
         data['username'] = username
@@ -304,14 +369,17 @@ class Client:
         data['email']    = email
         data['join']     = join
         if url is None:
-            url = self._url
+            url = self.url
+
+        if chatid is None:
+            chatid = self.chatid
 
         assert url is not None,'url is not set! add it to parameters of create_chatroom'
-        data['url']      = url+'/api/v0/invite/'+self._chatid
+        data['url']      = url+'/api/v0/invite/'+chatid
 
         return self._register(data)
         
-    def create_chatroom(self,chatroom_name,username,nickname,password,url=None,email=None,callback=None,join=False):
+    def create_chatroom(self,chatroom_name,username,nickname,password,url=None,chatid=None,email=None,callback=None,join=False):
         data = {}
         data['chatroom_name'] = chatroom_name
         data['username']      = username
@@ -320,7 +388,10 @@ class Client:
         data['email']         = email
         data['join']          = join
         if url is None:
-            url = self._url
+            url = self.url
+
+        if chatid is None:
+            chatid = self.chatid
 
         assert url is not None,'url is not set! add it to parameters of create_chatroom'
         data['url']      = url+'/api/v0/chatroom/'
@@ -343,14 +414,16 @@ class Client:
                 return resp
 
             if callable(callback):
-                callback(resp)
+                ret = callback(messages)
+                if ret:
+                    return ret
 
             return messages
 
 
         data = self._base_data.copy()
         data['time'] = str(since)
-        url = self._url+'/api/v0/message/'+self._chatid
+        url = self.url+'/api/v0/message/'+self.chatid
 
         return self._request('GET',url=url,headers=data,callback=_decrypt_messages,join=join)
 
@@ -382,7 +455,7 @@ class Client:
         headers = self._base_data.copy()
         headers['fileId'] = fileid
 
-        url = self._url+'/api/v0/file/'+self._chatid
+        url = self.url+'/api/v0/file/'+self.chatid
 
         t = threading.Thread(target=_build_file,args=(url,headers,callback))
         t.start()
@@ -392,7 +465,7 @@ class Client:
         data['expr-time'] = str(expire_time)
         data['uses']      = str(uses)
 
-        url = self._url+'/api/v0/invite/'+self._chatid
+        url = self.url+'/api/v0/invite/'+self.chatid
 
         return self._request('GET',url=url,headers=data,join=join)
     
@@ -414,7 +487,7 @@ class Client:
         data = self._base_data.copy()
         data['messageId'] = messageId
 
-        url = self._url+'/api/v0/message/'+self._chatid
+        url = self.url+'/api/v0/message/'+self.chatid
 
         return self._request('GET',url=url,headers=data,callback=_decrypt_message,join=join)
 
@@ -424,27 +497,19 @@ class Client:
         data = self._base_data.copy()
         data['messageId'] = messageId
 
-        url = self._url+'/api/v0/message/'+self._chatid
+        url = self.url+'/api/v0/message/'+self.chatid
 
         return self._request('DELETE',url=url,json=data,callback=callback,join=join)
 
 
-
     # events
+    def on_ready(self):
+        self.send_message('beep-boop')
+
     def on_message(self,messages):
-        pass
+        print('new message!')
 
-
-if __name__ == "__main__":
-    print('\033[2J')
-    # c = Client()
-    with open('client.obj','rb') as f:
-        c = pickle.load(f)
-        # print(c._base_data)
-
-    # while not c.is_set(key):
-        # time.sleep(0.1)
-
-    # with open('client.obj','wb') as f:
-        # pickle.dump(c,f)
-
+    def on_download(self,status):
+        # TODO: future, not supported by server
+        #      for now.
+        return

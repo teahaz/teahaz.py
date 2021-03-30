@@ -23,5 +23,7 @@ teahaz API client
 * [x] set_chatroom
 
 **events**
-* [ ] on_message
+* [x] on_message
+
+**future**
 * [ ] on_download(percentage/status)

@@ -1,4 +1,4 @@
-from client import Client,interactive
+from teahaz import Client,interactive
 import time,pickle,os,requests
 
 
@@ -10,8 +10,9 @@ class Bot(Client):
         print('ready!')
 
     def on_message(self,messages):
-        print('new message')
-        self.send_message('I heard that!:robot:')
+        for m in messages:
+            self.send_message('I heard that!:robot:')
+            print('new message')
     
 
 # initial interactive setup
@@ -26,7 +27,6 @@ if __name__ == "__main__":
         while mode not in ['login','invite']:
             print('invalid mode! choices:',['login','invite'])
             mode = input('login/invite')
-
 
         b = Bot()
         if mode == 'login':
@@ -49,6 +49,3 @@ if __name__ == "__main__":
                 print('response text:',ret.text)
 
             print('restart to try again.')
-
-
-

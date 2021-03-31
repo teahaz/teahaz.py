@@ -112,12 +112,14 @@ class Client:
         # public data
         self.url              = None
         self.chatid           = None
+        self.chatname         = None
+        self.username         = None
         self.check_frequency  = 0.5
 
         # flags
         self._is_stopped      = False
 
-    def run(self,url=None,chatid=None,username=None,password=None,frequency=None):
+    def run(self,url=None,chatid=None,username=None,password=None,frequency=None,hook_own_messages=False):
         if url is None:
             url = self.url
 
@@ -141,7 +143,7 @@ class Client:
                 return resp
 
         start = True
-        username = self._base_data.get('username')
+        self.username = self._base_data.get('username')
 
         self.on_ready()
         while not self._is_stopped:
@@ -155,9 +157,11 @@ class Client:
             self._last_check = str(time.time())
 
             messages = self.get_messages(get_time,join=True)
-            filtered = [m for m in messages if not m.get('username') == username]
-            if len(filtered) and not start:
-                threading.Thread(target=self.on_message,args=(filtered,)).start()
+            if not hook_own_messages:
+                messages = [m for m in messages if not me.get('username') == self.username]
+
+            if len(messages) and not start:
+                threading.Thread(target=self.on_message,args=(messages,)).start()
 
             start = False
             time.sleep(self.check_frequency)
@@ -286,6 +290,7 @@ class Client:
         self.chatid                = chatroom_dict.get('chatroom')
         self._chatname              = chatroom_dict.get('name')
         self._base_data['username'] = chatroom_dict.get('username')
+        self.username               = self._base_data['username']
 
     def is_connected(self,url):
         for cookie in self._session.cookies:
@@ -301,8 +306,9 @@ class Client:
             if resp.status_code == 200:
                 data = resp.json()
                 self._base_data['username'] = username
-                self.chatid = data['chatroom']
-                self._chatname = data['name']
+                self.username  = username
+                self.chatid    = data['chatroom']
+                self.chatname = data['name']
             else:
                 return resp
             

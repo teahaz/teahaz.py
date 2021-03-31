@@ -153,10 +153,7 @@ class Client:
             if self.is_paused():
                 continue
 
-            get_time         = self._last_check
-            self._last_check = str(time.time())
-
-            messages = self.get_messages(get_time,join=True)
+            messages = self.get_messages(self._last_check,join=True)
             if not hook_own_messages:
                 messages = [m for m in messages if not m.get('username') == self.username]
 
@@ -429,7 +426,7 @@ class Client:
         
 
     # GET
-    def get_messages(self,since,callback=None,join=False):
+    def get_messages(self,since=None,callback=None,join=False):
         def _decrypt_messages(resp):
             if resp.status_code == 200:
                 messages = resp.json()
@@ -449,6 +446,9 @@ class Client:
 
             return messages
 
+        if since is None:
+            since = self._last_check
+        self._last_check = str(time.time())
 
         data = self._base_data.copy()
         data['time'] = str(since)

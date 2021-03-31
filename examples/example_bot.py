@@ -21,6 +21,7 @@ if __name__ == "__main__":
         with open('bot.obj','rb') as f:
             b = pickle.load(f)
         b.run()
+        interactive(b.send_message)
 
     else:
         mode = input('login or invite? ')

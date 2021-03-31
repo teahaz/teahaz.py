@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='teahaz.py',
-    version='0.0.1',
+    version='0.0.2',
     packages=find_packages(exclude=['tests*','examples*']),
     license='MIT',
     description='Official API wrapper for the teahaz server',

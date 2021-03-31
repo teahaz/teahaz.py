@@ -210,7 +210,10 @@ class Client:
         if join:
             # return response value from responses
             _handler.join()
-            return self._responses[_response_key]
+            resp = self._responses[_response_key]
+            del self._responses[_response_key]
+
+            return resp
         else:
             # return key to future response
             return _response_key

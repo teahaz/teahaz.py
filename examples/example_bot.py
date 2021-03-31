@@ -10,9 +10,9 @@ class Bot(Client):
         print('ready!')
 
     def on_message(self,messages):
+        print('new messages!')
         for m in messages:
-            self.send_message('I heard that!:robot:')
-            print('new message')
+            self.send_message('ignore me')
     
 
 # initial interactive setup

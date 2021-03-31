@@ -158,7 +158,7 @@ class Client:
 
             messages = self.get_messages(get_time,join=True)
             if not hook_own_messages:
-                messages = [m for m in messages if not me.get('username') == self.username]
+                messages = [m for m in messages if not m.get('username') == self.username]
 
             if len(messages) and not start:
                 threading.Thread(target=self.on_message,args=(messages,)).start()

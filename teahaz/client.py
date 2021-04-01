@@ -305,10 +305,13 @@ class Client:
         def _set_data(resp):
             if resp.status_code == 200:
                 data = resp.json()
+                data['username'] = username
+                self.add_connection(url,data)
+
                 self._base_data['username'] = username
                 self.username  = username
                 self.chatid    = data['chatroom']
-                self.chatname = data['name']
+                self.chatname  = data['name']
             else:
                 return resp
             

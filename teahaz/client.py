@@ -1,5 +1,6 @@
 from cryptography.fernet import Fernet
 from urllib.parse import urlparse
+from typing import Callable
 import threading
 import requests
 import hashlib
@@ -107,7 +108,7 @@ class Client:
         self._base_data       = { "User-Agent": "teahaz.py-v0.0" }
         self._responses       = {}
         self._last_check      = '0'
-        self._connection_data = {'servers': {}}
+        self.connections = {'servers': {}}
 
         # public data
         self.url              = None
@@ -119,7 +120,7 @@ class Client:
         # flags
         self._is_stopped      = False
 
-    def run(self,url=None,chatid=None,username=None,password=None,frequency=None,hook_own_messages=False):
+    def run(self, url: str=None, chatid: str=None, username: str=None, password: str=None, frequency: str=None, hook_own_messages: bool=False):
         if url is None:
             url = self.url
 
@@ -165,7 +166,7 @@ class Client:
 
 
     # internal
-    def _request(self, method, join=False, callback=None,*request_args,**request_kwargs):
+    def _request(self, method:str, join: bool=False, callback: Callable=None, *request_args,**request_kwargs):
         """
         Create and run a request using self._session.
         
@@ -215,7 +216,7 @@ class Client:
             # return key to future response
             return _response_key
 
-    def _register(self,kwargs):
+    def _register(self, kwargs:dict):
         def _set_data(resp):
             if resp.status_code == 200:
                 data = resp.json()
@@ -250,30 +251,30 @@ class Client:
 
 
     # utils
-    def is_set(self,key):
+    def is_set(self, key:str):
         return key in self._responses.keys()
 
     def is_paused(self):
         return False
 
-    def get_response(self,key):
+    def get_response(self, key:str):
         return get_and_del(key,self._responses)
 
-    def get_chatroom(self,url,index):
+    def get_chatroom(self, url:str, index:str):
         if not url.endswith('/'):
             url += '/'
 
-        return self._connection_data['servers'][url][index]
+        return self.connections['servers'][url][index]
 
-    def add_connection(self,url,chatroom_dict,_set=True):
-        data = self._connection_data['servers']
+    def add_connection(self, url:str, chatroom_dict:dict, _set: bool=True):
+        data = self.connections['servers']
 
         url = url.strip('/')
         if url.count('/') > 2:
             end = find_occurence(url,'/',3)
             url = url[:end]
 
-        if url in self._connection_data['servers'].keys():
+        if url in self.connections['servers'].keys():
             data[url].append(chatroom_dict)
         else:
             data[url] = [chatroom_dict]
@@ -281,8 +282,8 @@ class Client:
         if _set:
             self.set_chatroom(url,chatroom_dict)
 
-    def set_chatroom(self,url,chatroom_dict):
-        data = self._connection_data
+    def set_chatroom(self, url:bool, chatroom_dict:dict):
+        data = self.connections
 
         assert url in data['servers'].keys()
 
@@ -292,7 +293,7 @@ class Client:
         self._base_data['username'] = chatroom_dict.get('username')
         self.username               = self._base_data['username']
 
-    def is_connected(self,url):
+    def is_connected(self, url:str):
         for cookie in self._session.cookies:
             if cookie.domain == urlparse(url).netloc.split(':')[0]:
                 return True
@@ -301,7 +302,7 @@ class Client:
 
         
     # POST
-    def login(self,username,password,callback=None,url=None,chatid=None,join=False):
+    def login(self, username:str, password:str, callback: Callable=None, url: str=None, chatid: str=None, join:bool=False):
         def _set_data(resp):
             if resp.status_code == 200:
                 data = resp.json()
@@ -337,7 +338,7 @@ class Client:
 
         return self._request('POST',url=url,json=data,callback=_set_data,join=join)
 
-    def send_message(self,text,replyid=None,callback=None,join=False):
+    def send_message(self, text:str, replyid: str=None, callback: bool=None, join: bool=False):
         data = self._base_data.copy()
         data['type'] = 'text'
         data['message'] = encrypt_message(text)
@@ -347,7 +348,7 @@ class Client:
 
         return self._request('POST',url=url,json=data,callback=callback,join=join)
 
-    def send_file(self,path,replyid=None,callback=None,join=False):
+    def send_file(self, path:str, replyid: str=None, callback: bool=None, join: bool=False):
         def _send_chunks(fileobj,url,data,callback):
             chunk_size = int((1048576*3)/4) - 1
             content    = True
@@ -389,7 +390,7 @@ class Client:
         t.start()
 
     # TODO: add assertions for chatid
-    def use_invite(self,inviteId,username,nickname,password,url=None,chatid=None,email=None,callback=None,join=False):
+    def use_invite(self, inviteId:str, username:str, nickname:str, password:str, url: str=None, chatid: str=None,email: str=None, callback: Callable=None, join: bool=False):
         data = {}
         data['inviteId'] = inviteId
         data['username'] = username
@@ -408,7 +409,7 @@ class Client:
 
         return self._register(data)
         
-    def create_chatroom(self,chatroom_name,username,nickname,password,url=None,chatid=None,email=None,callback=None,join=False):
+    def create_chatroom(self, chatroom_name:str, username:str, nickname:str, password:str, url: str=None, chatid: str=None, email: str=None, callback: Callable=None, join: bool=False):
         data = {}
         data['chatroom_name'] = chatroom_name
         data['username']      = username
@@ -429,7 +430,7 @@ class Client:
         
 
     # GET
-    def get_messages(self,since=None,callback=None,join=False):
+    def get_messages(self, since: int=None, callback: Callable=None, join: bool=False):
         def _decrypt_messages(resp):
             if resp.status_code == 200:
                 messages = resp.json()
@@ -459,7 +460,7 @@ class Client:
 
         return self._request('GET',url=url,headers=data,callback=_decrypt_messages,join=join)
 
-    def get_file(self,fileid,callback):
+    def get_file(self, fileid:str, callback:Callable):
         def _build_file(url,headers,callback):
             section = 0
             data = b''
@@ -492,7 +493,7 @@ class Client:
         t = threading.Thread(target=_build_file,args=(url,headers,callback))
         t.start()
 
-    def get_invite(self,expire_time,uses,join=False):
+    def get_invite(self, expire_time:int, uses:int, join: bool=False):
         data = self._base_data.copy()
         data['expr-time'] = str(expire_time)
         data['uses']      = str(uses)
@@ -501,7 +502,7 @@ class Client:
 
         return self._request('GET',url=url,headers=data,join=join)
     
-    def get_by_id(self,messageId,callback=None,join=False):
+    def get_by_id(self, messageId:str, callback: Callable=None, join: bool=False):
         def _decrypt_message(resp):
             if resp.status_code == 200:
                 message = resp.json()[0]
@@ -525,7 +526,7 @@ class Client:
 
 
     # DELETE
-    def delete_message(self,messageId,callback=None,join=False):
+    def delete_message(self, messageId:str, callback: Callable=None, join: bool=False):
         data = self._base_data.copy()
         data['messageId'] = messageId
 
@@ -538,7 +539,7 @@ class Client:
     def on_ready(self):
         self.send_message('beep-boop')
 
-    def on_message(self,messages):
+    def on_message(self, messages:list):
         print('new message!')
 
     def on_download(self,status):

@@ -48,7 +48,7 @@ class Event(Enum):
 
 
 class EndpointContainer:
-    """EndpointContainer of the Teahaz API"""
+    """Endpoints of the Teahaz API"""
 
     _items = {
         "base": "{url}/api/v0",
@@ -65,10 +65,14 @@ class EndpointContainer:
         self._url = url
         self._uid = uid
 
-    def __setattr__(self, item: str, value: str) -> None:
+    def set(self, item: str, value: str) -> None:
         """Set normally private argument"""
 
-        setattr(self, "_" + item, value)
+        item = "_" + item
+        if not item in dir(self):
+            raise KeyError(f"Invalid setter key {item}.")
+
+        setattr(self, item, value)
 
     def __getattr__(self, item: str) -> str:
         """Get attribute"""
@@ -76,8 +80,6 @@ class EndpointContainer:
         # this would recurse
         if item == "base":
             return self._items["base"].format(url=self._url)
-
-        assert self._uid is not None, "Please provide a chatroom uuid."
 
         return self._items[item].format(
             url=self._url, base=self.base, chatroom_id=self._uid
@@ -119,7 +121,7 @@ class Channel:
 
 
 class Chatroom:
-    """This is not empty"""
+    """TODO"""
 
     def __init__(
         self,
@@ -128,7 +130,7 @@ class Chatroom:
         name: Optional[str] = None,
         session: Optional[requests.Session] = None,
     ) -> None:
-        """ """
+        """Initialize object"""
 
         self.uid = uid
         self.url = url
@@ -142,10 +144,9 @@ class Chatroom:
 
         self.endpoints: EndpointContainer
 
-        # If the chatroom doesn't exist yet its endpoints are generated
-        # in the create method.
-        if self.url is not None:
-            self.endpoints = EndpointContainer(self.url, self.uid)
+        # If the chatroom doesn't exist yet its endpoints' uid
+        # is only filled in the create() method
+        self.endpoints = EndpointContainer(self.url, self.uid)
 
         self._listeners: dict[Event, EventCallback] = {}
         self._is_looping: bool = False
@@ -271,6 +272,8 @@ class Chatroom:
         self.name = response["chatroom_name"]
         self.uid = response["chatroomID"]
         self.user_id = response["userID"]
+
+        self.endpoints.set("uid", self.uid)
 
         self._update_channels(response["channels"])
 
@@ -399,10 +402,10 @@ class Chatroom:
 
 
 class Teacup:
-    """This is not empty"""
+    """TODO"""
 
     def __init__(self) -> None:
-        """ """
+        """Initialize object"""
 
         self.chatrooms: list[Chatroom] = []
         self._global_listeners: dict[Event, EventCallback] = {}

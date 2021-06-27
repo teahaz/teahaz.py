@@ -1,5 +1,8 @@
-teahaz API client
-===================================================
+teahaz.py
+=========
+
+[![PyPI version](https://badge.fury.io/py/teahaz.py.svg)](https://badge.fury.io/py/teahaz.py)
+[![Pylint quality](assets/quality.svg)](https://github.com/bczsalba/pytermgui/blob/master/utils/create_badge.py)
 
 ### implemented/planned methods
 **internal**

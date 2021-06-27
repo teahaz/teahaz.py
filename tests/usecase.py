@@ -5,21 +5,14 @@ from teahaz import Teacup, Event, Message, Chatroom
 from pytermgui import (
     Container,
     Prompt,
+    InputField,
+    markup_to_ansi,
     Label,
     alt_buffer,
     define_tag,
     boxes,
     break_line,
 )
-
-define_tag("error-title", "210 italic bold")
-define_tag("error-code", "72 bold")
-define_tag("error-data", "72 bold")
-define_tag("error-method", "72 bold")
-define_tag("error-message", "72 bold")
-
-Prompt.set_char("delimiter", [""] * 2)
-boxes.SINGLE.set_chars_of(Container)
 
 
 def handle_error(response: Response, method: str, req_kwargs: dict[str, Any]) -> None:
@@ -62,39 +55,45 @@ def handle_error(response: Response, method: str, req_kwargs: dict[str, Any]) ->
         input()
 
 
-cup = Teacup()
-cup.subscribe_all(Event.ERROR, handle_error)
+def setup() -> None:
+    """Setup initial styles & values"""
 
-chat = cup.create_chatroom("https://teahaz.co.uk", "test", "alma", "1234567890")
-# chat = cup.login("alma", "1234567890", chatroom="thisisachatroomid")
-print(chat)
-input()
+    define_tag("error-title", "210 italic bold")
+    define_tag("error-code", "72 bold")
+    define_tag("error-data", "72 bold")
+    define_tag("error-method", "72 bold")
+    define_tag("error-message", "72 bold")
 
-channel = chat.create_channel("main")
-chat.send("hello world!")
-print(chat.get_messages())
-input()
+    Prompt.set_char("delimiter", [""] * 2)
+    boxes.SINGLE.set_chars_of(Container)
 
-# def handler(message: Message, chatroom: Chatroom):
-# print("message received!")
-# print(f"{message.time = }")
-# print(f"{message.sender = }")
-# print(f"{message.sender_uid = }\n")
-# print(f"{message.type = }")
-# print(f"{message.content = }")
 
-# chat.subscribe(Event.MSG_NEW, handler)
+def progress_print(content: str) -> None:
+    """Print without end newline, with flush & markup parsing"""
 
-# chat.send("hello world!")
+    print(markup_to_ansi(content), flush=True, end="")
 
-# def britney(message: Message, chatroom: Chatroom)
-# if message.type == "file":
-# return
 
-# if "britney" in message.content:
-# chatroom.send("wassup")
+def main() -> None:
+    """Main method"""
 
-# cup.subscribe_all("message", britney)
+    setup()
 
-# print(cup.chatrooms)
-# print(chat = cup.get_chatroom("thisisanother"))
+    cup = Teacup()
+    cup.subscribe_all(Event.ERROR, handle_error)
+
+    progress_print("[italic]Creating chatroom... ")
+    chat = cup.create_chatroom("https://teahaz.co.uk", "test", "alma", "1234567890")
+    print("✅\n")
+
+    print(chat)
+    input()
+
+    channel = chat.create_channel("main")
+    chat.send("hello world!")
+    print(chat.get_messages())
+    input()
+
+
+if __name__ == "__main__":
+    main()

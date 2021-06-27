@@ -1,548 +1,451 @@
-from cryptography.fernet import Fernet
-from urllib.parse import urlparse
-from typing import Callable
-import threading
+"""
+teahaz.client
+----------------
+author: bczsalba
+
+
+The module containing the main objects for the Teahaz API wrapper
+"""
+
+# pylint: disable=too-many-instance-attributes
+
+from __future__ import annotations
+
+from time import sleep
+from enum import Enum, auto
+from threading import Thread
+from dataclasses import dataclass
+from typing import Callable, Any, Union, Optional
+
 import requests
-import hashlib
-import string
-import base64
-import pickle
-import time
-import json
-import sys
-import os
-
-
-# ENCRYPTION/DECRYPTION
-def encrypt_message(a):
-    return base64.b64encode(str(a).encode('utf-8')).decode('utf-8')
-
-def encrypt_binary(a):
-    return base64.b64encode(a).decode('utf-8')
-
-def decrypt_message(a):
-    return base64.b64decode(str(a).encode('utf-8')).decode('utf-8')
-
-def decrypt_binary(a):
-    return base64.b64decode(str(a).encode('utf-8'))
-
-def _gen_token(a):
-    "Generating token out of password, so It cannot be reversed"
-    return base64.urlsafe_b64encode(str(hashlib.sha256(a.encode('utf-8')).digest())[:32].encode('utf-8'))
-
-def _encrpt_string(string, token):
-    "Encrypts a string given to it"
-    f = Fernet(token)
-    enc = f.encrypt(string.encode('utf-8'))
-    return enc.decode('utf-8')
-
-def _decrypt_string(encrypted_string, token):
-    "Decrypts a string given to it"
-    f = Fernet(token)
-    dec = f.decrypt(encrypted_string.encode('utf-8'))
-    return dec.decode('utf-8')
-
-
-# HELPERS
-def sanitize_filename(a):
-    allowed = string.ascii_letters + string.digits + '_-.'
-    a = a.replace('..', '_')
-
-    filename = ''
-    for i in a:
-        if i not in allowed:
-            i = '_'
-        filename += i
-
-    return filename
-
-def get_and_del(key,d):
-    value = d.get(key)
-    if value is not None:
-        del d[key]
-    return value
-
-def find_occurence(string,substring,num):
-    start = 0
-    index = 0
-    for _ in range(num):
-        index = string[start:].find(substring)
-        if index == -1:
-            break
-
-        start += index+1
-    return start
-
-def interactive(function):
-    import inspect
-    assert callable(function)
-
-    sig = inspect.signature(function)
-
-    data = ()
-    for i,(name,param) in enumerate(sig.parameters.items()):
-        inp = input(name+': ')
-
-        if inp.isdigit() and len(inp) == 1:
-            inp = int(inp)
-            data += (inp,)
-        elif len(inp):
-            data += (inp,)
-        else:
-            data += (param.default,)
-
-    print('\n')
-    print('calling\033[38;5;35m',function.__name__+'\033[m with\033[38;5;35m',data,'\033[m')
-
-    ret = function(*data)
-    print('return:',ret)
-
-    return ret
-
-
-
-class Client:
-    def __init__(self):
-        # internal data
-        self._session         = requests.Session()
-        self._base_data       = { "User-Agent": "teahaz.py-v0.0" }
-        self._responses       = {}
-        self._last_check      = '0'
-        self.connections = {'servers': {}}
-
-        # public data
-        self.url              = None
-        self.chatid           = None
-        self.chatname         = None
-        self.username         = None
-        self.check_frequency  = 0.5
-
-        # flags
-        self._is_stopped      = False
-
-    def run(self, url: str=None, chatid: str=None, username: str=None, password: str=None, frequency: str=None, hook_own_messages: bool=False):
-        if url is None:
-            url = self.url
-
-        if chatid is None:
-            chatid = self.chatid
-
-        if frequency is None:
-            frequency = self.check_frequency
-
-        assert url       is not None
-        assert chatid    is not None
-        assert frequency is not None
-
-        if not self.is_connected(url):
-            assert username is not None,"Not logged in to {url} and no username given."
-            assert password is not None,"Not logged in to {url} and no password given."
-
-            resp = self.login(username=username,password=password,url=url,chatid=chatid,join=True)
-            if resp is not None:
-                print(resp.json())
-                return resp
-
-        start = True
-        self.username = self._base_data.get('username')
-
-        self.on_ready()
-        while not self._is_stopped:
-            if not start:
-                time.sleep(self.check_frequency)
-
-            if self.is_paused():
-                continue
-
-            messages = self.get_messages(self._last_check,join=True)
-            if not hook_own_messages:
-                messages = [m for m in messages if not m.get('username') == self.username]
-
-            if len(messages) and not start:
-                threading.Thread(target=self.on_message,args=(messages,)).start()
-
-            start = False
-            time.sleep(self.check_frequency)
-
-
-    # internal
-    def _request(self, method:str, join: bool=False, callback: Callable=None, *request_args,**request_kwargs):
-        """
-        Create and run a request using self._session.
-        
-        Arguments:
-        <str> method:
-            method to use in request.
-            - allows: "POST"/"GET"
-
-        <bool> join:
-            boolean to decide if request Thread should be
-            joined or not.
-            - decides return value:
-                * request.Response if join
-                * else key into self._responses
-                  NOTE: response should be del-d after use.
-        """
-        # TODO: maybe add conn_start & conn_end callbacks?
-        def _do_request(_response_key,*args,**kwargs):
-            resp = _method(*args,**kwargs)
-
-            if callback:
-                self._responses[_response_key] = callback(resp)
-            else:
-                self._responses[_response_key] = resp
-
-        if method == "POST":
-            _method = self._session.post
-        elif method == "GET":
-            _method = self._session.get
-        elif method == "DELETE":
-            _method = self._session.delete
-        else:
-            raise Exception('what is this method lol',str(method))
-
-        _response_key = int(time.time())
-        _handler = threading.Thread(target=_do_request,args=(_response_key,)+request_args,kwargs=request_kwargs)
-        _handler.start()
-
-        if join:
-            # return response value from responses
-            _handler.join()
-            resp = self._responses[_response_key]
-            del self._responses[_response_key]
-
-            return resp
-        else:
-            # return key to future response
-            return _response_key
-
-    def _register(self, kwargs:dict):
-        def _set_data(resp):
-            if resp.status_code == 200:
-                data = resp.json()
-                data['username'] = username
-                self.add_connection(url,data)
-            else:
-                return resp
-
-            if callable(callback):
-                callback(resp)
-
-        data = self._base_data.copy()
-
-        # set up function params
-        data['email']    = get_and_del('email',kwargs)
-        callback         = get_and_del('callback',kwargs)
-        join             = get_and_del('join',kwargs)
-        url              = get_and_del('url',kwargs)
-        username         = kwargs.get('username')
-
-        # set up compulsory values
-        data['username'] = username
-        data['nickname'] = kwargs.get('nickname')
-        data['password'] = kwargs.get('password')
-        for key,value in kwargs.items():
-            data[key] = value
-
-        # assert not any(val is None for val in data.values())
-        assert url is not None
-
-        return self._request('POST',url=url,json=data,callback=_set_data,join=join)
-
-
-    # utils
-    def is_set(self, key:str):
-        return key in self._responses.keys()
-
-    def is_paused(self):
-        return False
-
-    def get_response(self, key:str):
-        return get_and_del(key,self._responses)
-
-    def get_chatroom(self, url:str, index:str):
-        if not url.endswith('/'):
-            url += '/'
-
-        return self.connections['servers'][url][index]
-
-    def add_connection(self, url:str, chatroom_dict:dict, _set: bool=True):
-        data = self.connections['servers']
-
-        url = url.strip('/')
-        if url.count('/') > 2:
-            end = find_occurence(url,'/',3)
-            url = url[:end]
-
-        if url in self.connections['servers'].keys():
-            data[url].append(chatroom_dict)
-        else:
-            data[url] = [chatroom_dict]
-
-        if _set:
-            self.set_chatroom(url,chatroom_dict)
-
-    def set_chatroom(self, url:bool, chatroom_dict:dict):
-        data = self.connections
-
-        assert url in data['servers'].keys()
-
-        self.url                   = url
-        self.chatid                = chatroom_dict.get('chatroom')
-        self._chatname              = chatroom_dict.get('name')
-        self._base_data['username'] = chatroom_dict.get('username')
-        self.username               = self._base_data['username']
-
-    def is_connected(self, url:str):
-        for cookie in self._session.cookies:
-            if cookie.domain == urlparse(url).netloc.split(':')[0]:
-                return True
-        else:
-            return False
-
-        
-    # POST
-    def login(self, username:str, password:str, callback: Callable=None, url: str=None, chatid: str=None, join:bool=False):
-        def _set_data(resp):
-            if resp.status_code == 200:
-                data = resp.json()
-                data['username'] = username
-                self.add_connection(url,data)
-
-                self._base_data['username'] = username
-                self.username  = username
-                self.chatid    = data['chatroom']
-                self.chatname  = data['name']
-            else:
-                return resp
-            
-            if callable(callback):
-                callback(resp)
-
-
-        if url == None:
-            url = self.url
-        else:
-            self.url = url
-
-        if chatid == None:
-            chatid = self.chatid
-        else:
-            self.chatid = chatid
-
-        url += '/login/'+chatid
-
-        data = self._base_data.copy()
-        data['username'] = username
-        data['password'] = password
-
-        return self._request('POST',url=url,json=data,callback=_set_data,join=join)
-
-    def send_message(self, text:str, replyid: str=None, callback: bool=None, join: bool=False):
-        data = self._base_data.copy()
-        data['type'] = 'text'
-        data['message'] = encrypt_message(text)
-        data['replyId'] = replyid
-
-        url = self.url+'/api/v0/message/'+self.chatid
-
-        return self._request('POST',url=url,json=data,callback=callback,join=join)
-
-    def send_file(self, path:str, replyid: str=None, callback: bool=None, join: bool=False):
-        def _send_chunks(fileobj,url,data,callback):
-            chunk_size = int((1048576*3)/4) - 1
-            content    = True
-            fileId     = None
-
-            while content:
-                chunk = fileobj.read(chunk_size)
-
-                if len(chunk) < chunk_size or f.tell() >= length:
-                    content = False
-
-                data['fileId'] = fileId
-                data['part']   = content
-                data['data']   = encrypt_binary(chunk)
-
-                resp = self._request('POST',url=url,json=data,join=True)
-                if not resp.status_code == 200:
-                    break
-                else:
-                    fileId = resp.text.strip(' ').strip('\n').strip('"')
-
-            fileobj.close()
-
-            if callback:
-                callback(resp)
-
-
-        url = self.url+'/api/v0/file/'+self.chatid
-
-        data = self._base_data.copy()
-        data['type']     = 'file'
-        data['replyId']  = replyid
-        data['filename'] = sanitize_filename(os.path.split(path)[1])
-
-        length = os.path.getsize(path)
-        fileobj = open(path,'rb+')
-        
-        t = threading.Thread(target=_send_chunks,args=(fileobj,url,data,callback))
-        t.start()
-
-    # TODO: add assertions for chatid
-    def use_invite(self, inviteId:str, username:str, nickname:str, password:str, url: str=None, chatid: str=None,email: str=None, callback: Callable=None, join: bool=False):
-        data = {}
-        data['inviteId'] = inviteId
-        data['username'] = username
-        data['nickname'] = nickname
-        data['password'] = password
-        data['email']    = email
-        data['join']     = join
-        if url is None:
-            url = self.url
-
-        if chatid is None:
-            chatid = self.chatid
-
-        assert url is not None,'url is not set! add it to parameters of create_chatroom'
-        data['url']      = url+'/api/v0/invite/'+chatid
-
-        return self._register(data)
-        
-    def create_chatroom(self, chatroom_name:str, username:str, nickname:str, password:str, url: str=None, chatid: str=None, email: str=None, callback: Callable=None, join: bool=False):
-        data = {}
-        data['chatroom_name'] = chatroom_name
-        data['username']      = username
-        data['nickname']      = nickname
-        data['password']      = password
-        data['email']         = email
-        data['join']          = join
-        if url is None:
-            url = self.url
-
-        if chatid is None:
-            chatid = self.chatid
-
-        assert url is not None,'url is not set! add it to parameters of create_chatroom'
-        data['url']      = url+'/api/v0/chatroom/'
-
-        return self._register(data)
-        
-
-    # GET
-    def get_messages(self, since: int=None, callback: Callable=None, join: bool=False):
-        def _decrypt_messages(resp):
-            if resp.status_code == 200:
-                messages = resp.json()
-                for m in messages:
-                    if m.get('type') == 'text':
-                        try:
-                            m['message'] = decrypt_message(m['message'])
-                        except:
-                            continue
-            else:
-                return resp
-
-            if callable(callback):
-                ret = callback(messages)
-                if ret:
-                    return ret
-
-            return messages
-
-        if since is None:
-            since = self._last_check
-        self._last_check = str(time.time())
-
-        data = self._base_data.copy()
-        data['time'] = str(since)
-        url = self.url+'/api/v0/message/'+self.chatid
-
-        return self._request('GET',url=url,headers=data,callback=_decrypt_messages,join=join)
-
-    def get_file(self, fileid:str, callback:Callable):
-        def _build_file(url,headers,callback):
-            section = 0
-            data = b''
+
+__all__ = [
+    "Event",
+    "Teacup",
+    "Chatroom",
+    "Message",
+]
+
+MessageCallback = Callable[["Message", "Chatroom"], Any]
+ErrorCallback = Callable[[requests.Response, str, dict[str, Any]], Any]
+ExceptionCallback = Callable[[Exception, str, dict[str, Any]], Any]
+EventCallback = Union[MessageCallback, ErrorCallback]
+
+
+class Event(Enum):
+    """Events that `Chatroom` and `Teacup` can subscribe to"""
+
+    ERROR = auto()
+    MSG_NEW = auto()
+    MSG_DEL = auto()
+    MSG_SYS = auto()
+    MSG_SENT = auto()
+    USER_JOIN = auto()
+    USER_LEAVE = auto()
+    SERVER_INFO = auto()
+    MSG_SYS_SILENT = auto()
+    NETWORK_EXCEPTION = auto()
+
+
+class EndpointContainer:
+    """EndpointContainer of the Teahaz API"""
+
+    _items = {
+        "base": "{url}/api/v0",
+        "login": "{base}/login/{chatroom_id}",
+        "chatroom": "{base}/chatroom",
+        "files": "{base}/files/{chatroom_id}",
+        "messages": "{base}/messages/{chatroom_id}",
+        "channels": "{base}/channels/{chatroom_id}",
+    }
+
+    def __init__(self, url: str, uid: Optional[str] = None) -> None:
+        """Create object"""
+
+        self._url = url
+        self._uid = uid
+
+    def __setattr__(self, item: str, value: str) -> None:
+        """Set normally private argument"""
+
+        setattr(self, "_" + item, value)
+
+    def __getattr__(self, item: str) -> str:
+        """Get attribute"""
+
+        # this would recurse
+        if item == "base":
+            return self._items["base"].format(url=self._url)
+
+        assert self._uid is not None, "Please provide a chatroom uuid."
+
+        return self._items[item].format(
+            url=self._url, base=self.base, chatroom_id=self._uid
+        )
+
+
+@dataclass
+class Message:
+    """A dataclass to store messages
+
+    Note: This is only meant to be used internally."""
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Message:
+        """Create Message from server-data"""
+
+
+@dataclass
+class Channel:
+    """A dataclass to store channels
+
+    Note: This is only meant to be used internally."""
+
+    uid: str
+    name: str
+    public: bool
+    permissions: dict[str, bool]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Channel:
+        """Create Channel from server-data"""
+
+        return cls(
+            uid=data["channelID"],
+            name=data["channel_name"],
+            public=data["public"],
+            permissions=data["permissions"],
+        )
+
+
+class Chatroom:
+    """This is not empty"""
+
+    def __init__(
+        self,
+        url: str,
+        uid: Optional[str] = None,
+        name: Optional[str] = None,
+        session: Optional[requests.Session] = None,
+    ) -> None:
+        """ """
+
+        self.uid = uid
+        self.url = url
+        self.name = name
+        self.interval = 1
+
+        self.user_id: Optional[str] = None
+        self.session = session or requests.Session()
+        self.active_channel: Optional[Channel] = None
+        self.channels: list[Channel] = []
+
+        self.endpoints: EndpointContainer
+
+        # If the chatroom doesn't exist yet its endpoints are generated
+        # in the create method.
+        if self.url is not None:
+            self.endpoints = EndpointContainer(self.url, self.uid)
+
+        self._listeners: dict[Event, EventCallback] = {}
+        self._is_looping: bool = False
+
+    def _request(self, method_name: str, **req_args: Any) -> Optional[Any]:
+        """Handle internal request, deal with error event calling"""
+
+        method = getattr(self.session, method_name)
+        if method is None:
+            raise ValueError(f'Session does not have a method for "{method_name}".')
+
+        error_handler = self._listeners.get(Event.ERROR)
+        exception_handler = self._listeners.get(Event.NETWORK_EXCEPTION)
+
+        try:
+            response = method(**req_args)
+        except Exception as exception:
+            # This should just raise a custom Exception.
+            if exception_handler is not None:
+                # mypy thinks this will get a self argument
+                exception_handler(exception, method_name, req_args)  # type: ignore
+
+                return None
+
+            raise exception
+
+        if response.status_code == 200:
+            return response.json()
+
+        if error_handler is not None:
+            # mypy thinks this will get a self argument
+            error_handler(response, method_name, req_args)  # type: ignore
+            return None
+
+        raise RuntimeError(
+            f"{method_name.upper()} request with data {req_args} failed"
+            f" with no error or exception handler: {response.status_code} -> {response.text}"
+        )
+
+    def _notify(self, event: Event, *data: Any) -> None:
+        """Notify listener of event"""
+
+        callback = self._listeners.get(event)
+        if callback is None:
+            return
+
+        callback(*data)
+
+    def _run(self) -> None:
+        """Run monitoring loop"""
+
+        def _loop() -> None:
+            """The main event loop for a chatroom"""
+
             while True:
-                headers['section'] = str(section + 1)
-                section += 1
+                # This needs server-side support
+                # messages = self.get_since(self._last_get_time)
+                messages: list[Message] = []
 
-                resp = self._request('GET',url=url,headers=headers,join=True)
-                if resp.status_code == 200:
-                    stripped = resp.json()
-                    
-                    if not len(stripped):
-                        break
+                for message in messages:
+                    if message.type == "delete":
+                        self._notify(Event.MSG_DEL, message)
+
+                    elif message.type == "system":
+                        self._notify(Event.MSG_SYS, message)
+
+                    elif message.type == "system-silent":
+                        self._notify(Event.MSG_SYS_SILENT, message)
+
                     else:
-                        try:
-                            data += decrypt_binary(stripped)
-                        except:
-                            data = b'Corrupt'
-                            break
-                else:
-                    break
+                        self._notify(Event.MSG_NEW, message)
 
-            callback(data)
+                sleep(self.interval)
 
-        headers = self._base_data.copy()
-        headers['fileId'] = fileid
+        event_thread = Thread(target=_loop, name=self.uid)
+        event_thread.start()
 
-        url = self.url+'/api/v0/file/'+self.chatid
+    def _update_channels(self, channels: Optional[list[Channel]] = None) -> None:
+        """Update channels available to the user"""
 
-        t = threading.Thread(target=_build_file,args=(url,headers,callback))
-        t.start()
+        assert self.user_id, "Please log in before getting channels!"
 
-    def get_invite(self, expire_time:int, uses:int, join: bool=False):
-        data = self._base_data.copy()
-        data['expr-time'] = str(expire_time)
-        data['uses']      = str(uses)
+        if channels is None:
+            channels = self._request(
+                "get",
+                url=self.endpoints.channels,
+                headers={"userID": self.user_id},
+            )
 
-        url = self.url+'/api/v0/invite/'+self.chatid
+            if channels is None:
+                # Getting channels failed, but error was captured
+                return
 
-        return self._request('GET',url=url,headers=data,join=join)
-    
-    def get_by_id(self, messageId:str, callback: Callable=None, join: bool=False):
-        def _decrypt_message(resp):
-            if resp.status_code == 200:
-                message = resp.json()[0]
-                if message.get('type') == 'text':
-                    message['message'] = decrypt_message(message['message'])
-            else:
-                return resp
+        for data in channels:
+            channel = Channel.from_dict(data)
 
-            if callable(callback):
-                callback(resp)
+            if channel not in self.channels:
+                self.channels.append(channel)
 
-            return message
+        if self.active_channel is None and len(self.channels) > 0:
+            self.active_channel = self.channels[0]
+
+    def create(self, username: str, password: str) -> None:
+        """Create chatroom on the server"""
+
+        data = {
+            "chatroom_name": self.name,
+            "username": username,
+            "password": password,
+        }
+
+        response = self._request(
+            "post",
+            headers={"Content-Type": "application/json"},
+            url=self.endpoints.chatroom,
+            json=data,
+        )
+
+        if response is None:
+            # Creation did not succeed, but error was captured
+            return
+
+        self.name = response["chatroom_name"]
+        self.uid = response["chatroomID"]
+        self.user_id = response["userID"]
+
+        self._update_channels(response["channels"])
+
+    def create_channel(self, name: str) -> Optional[Channel]:
+        """Create a channel"""
+
+        data = {
+            "userID": self.user_id,
+            "channel_name": name,
+        }
+
+        response = self._request("post", url=self.endpoints.channels, json=data)
+
+        if response is None:
+            # Creation of chatroom failed, but error was captured
+            return None
+
+        channel = Channel.from_dict(response)
+        self._update_channels([channel])
+
+        return channel
+
+    def get_messages(
+        self,
+        channel: Optional[Channel] = None,
+        count: Optional[int] = None,
+        time: Optional[int] = None,
+    ) -> Any:  # list[Message]:
+        """Get `count` messages"""
+
+        if channel is not None:
+            self.active_channel = channel
+
+        elif self.active_channel is None:
+            raise ValueError(
+                "Please use either the Chatroom.set_channel() function"
+                + " or provide `channel` as a non-null value!"
+            )
+
+        else:
+            raise ValueError("No channel was provided.")
+
+        headers = {
+            "channelID": channel.uid,
+            "count": count,
+            "time": time,
+        }
+
+        data = self._request(
+            "get",
+            url=self.endpoints.messages,
+            headers=headers,
+        )
+
+        return data
+
+        # return [Message.from_dict(message_data) for message_data in data]
+
+    def login(self, user_id: str, password: str) -> Optional[Any]:
+        """Log into the chatroom with given credentials
+
+        Temporary: user_id will be replaced with username"""
+
+        data = {
+            "userID": user_id,
+            "password": password,
+        }
+
+        response = self._request(
+            "post",
+            url=self.endpoints.login,
+            json=data,
+        )
+
+        self.user_id = user_id
+        self._update_channels()
+
+        return response
+
+    def send(
+        self,
+        content: Union[str, bytes],
+        channel: Optional[Channel] = None,
+        reply_id: Optional[str] = None,
+    ) -> Optional[Any]:
+        """Send a message
+
+        The message type is detected automatically, so sending files & text
+        is done through the same method."""
+
+        msg = {}
+        if channel is not None:
+            self.active_channel = channel
+
+        elif self.active_channel is None:
+            raise ValueError(
+                "Please use either the Chatroom.set_channel() function"
+                + " or provide `channel` as a non-null value!"
+            )
+
+        if isinstance(content, bytes):
+            endpoint = self.endpoints.files
+        else:
+            endpoint = self.endpoints.messages
+
+        msg = {
+            "userID": self.user_id,
+            "channelID": self.active_channel.uid,
+            "replyID": reply_id,
+            "data": content,
+        }
+
+        return self._request(
+            "post",
+            url=self.url + endpoint.format(chatroom_id=self.uid),
+            json=msg,
+        )
+
+    def subscribe(self, event: Event, callback: EventCallback) -> None:
+        """Listen for event and run callback"""
+
+        self._listeners[event] = callback
+
+        if not self._is_looping and not event in [Event.ERROR, Event.NETWORK_EXCEPTION]:
+            self._run()
 
 
-        data = self._base_data.copy()
-        data['messageId'] = messageId
+class Teacup:
+    """This is not empty"""
 
-        url = self.url+'/api/v0/message/'+self.chatid
+    def __init__(self) -> None:
+        """ """
 
-        return self._request('GET',url=url,headers=data,callback=_decrypt_message,join=join)
+        self.chatrooms: list[Chatroom] = []
+        self._global_listeners: dict[Event, EventCallback] = {}
 
+    def login(self, username: str, password: str, chatroom: str, url: str) -> Chatroom:
+        """Create a logged-in chatroom instance"""
 
-    # DELETE
-    def delete_message(self, messageId:str, callback: Callable=None, join: bool=False):
-        data = self._base_data.copy()
-        data['messageId'] = messageId
+        chat = Chatroom(url=url, uid=chatroom)
 
-        url = self.url+'/api/v0/message/'+self.chatid
+        for event, callback in self._global_listeners.items():
+            chat.subscribe(event, callback)
 
-        return self._request('DELETE',url=url,json=data,callback=callback,join=join)
+        chat.login(username, password)
 
+        return chat
 
-    # events
-    def on_ready(self):
-        self.send_message('beep-boop')
+    def get_chatroom(self, name: str) -> Optional[Chatroom]:
+        """Get first chatroom by matching name"""
 
-    def on_message(self, messages:list):
-        print('new message!')
+        for chatroom in self.chatrooms:
+            if chatroom.name == name:
+                return chatroom
 
-    def on_download(self,status):
-        # TODO: future, not supported by server
-        #      for now.
-        return
+        return None
+
+    def create_chatroom(
+        self, url: str, name: str, username: str, password: str
+    ) -> Chatroom:
+        """Create a new chatroom with given user as its owner, return a logged-in instance"""
+
+        chat = Chatroom(url=url, name=name)
+
+        for event, callback in self._global_listeners.items():
+            chat.subscribe(event, callback)
+
+        chat.create(username, password)
+
+        return chat
+
+    def subscribe_all(self, event: Event, callback: EventCallback) -> None:
+        """Subscribe callback to event in all (current & future) Chatrooms"""
+
+        for chatroom in self.chatrooms:
+            chatroom.subscribe(event, callback)
+
+        self._global_listeners[event] = callback

@@ -1,17 +1,15 @@
 from typing import Any
 from requests import Response
 
-from teahaz import Teacup, Event, Message, Chatroom
+from teahaz import Teacup, Event, Message, Chatroom, Channel
 from pytermgui import (
     Container,
     Prompt,
-    InputField,
-    markup_to_ansi,
     Label,
+    boxes,
     alt_buffer,
     define_tag,
-    boxes,
-    break_line,
+    markup_to_ansi,
 )
 
 
@@ -65,13 +63,43 @@ def setup() -> None:
     define_tag("error-message", "72 bold")
 
     Prompt.set_char("delimiter", [""] * 2)
-    boxes.SINGLE.set_chars_of(Container)
+    boxes.DOUBLE_TOP.set_chars_of(Container)
 
 
 def progress_print(content: str) -> None:
     """Print without end newline, with flush & markup parsing"""
 
     print(markup_to_ansi(content), flush=True, end="")
+
+
+def create_chatroom_test(
+    cup: Teacup, url: str, name: str, username: str, password: str
+) -> Chatroom:
+    """Test: create chatroom"""
+
+    progress_print("[italic]Creating chatroom... ")
+    chat = cup.create_chatroom(
+        url,
+        name,
+        username,
+        password,
+    )
+
+    assert chat is not None
+    print("✅\n")
+
+    return chat
+
+
+def create_channel_test(chat: Chatroom, name: str) -> Channel:
+    """Test: create channel"""
+
+    channel = chat.create_channel("main")
+
+    assert channel is not None
+    print("✅\n")
+
+    return channel
 
 
 def main() -> None:
@@ -82,16 +110,18 @@ def main() -> None:
     cup = Teacup()
     cup.subscribe_all(Event.ERROR, handle_error)
 
-    progress_print("[italic]Creating chatroom... ")
-    chat = cup.create_chatroom("https://teahaz.co.uk", "test", "alma", "1234567890")
-    print("✅\n")
+    chat = create_chatroom_test(
+        cup, "https://teahaz.co.uk", "test-alma", "alma", "1234567890"
+    )
 
-    print(chat)
-    input()
+    channel = create_channel_test(chat, "__main__")
 
-    channel = chat.create_channel("main")
     chat.send("hello world!")
     print(chat.get_messages())
+    input()
+
+    print(chat)
+
     input()
 
 

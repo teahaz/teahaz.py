@@ -53,14 +53,14 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
 
     * note: `userID` to become `username` in the near future.
 
-- [ ] Users: `/users/<chatroom_id>`
-    * [ ] get:
+- [x] Users: `/users/<chatroom_id>`
+    * [x] get:
         + userID: `str`
         + -> Return all users in a chatroom: `list[User]`
     * [x] post: None
 
-- [ ] Channels: `/channels/<chatroom_id>`
-    * [ ] get:
+- [x] Channels: `/channels/<chatroom_id>`
+    * [x] get:
         + userID: `str`
         + -> Return all channels a user has read-access to: `list[Channel]`
     * [x] post:

@@ -132,10 +132,10 @@ class User:
     def get_color(self) -> str:
         """Get user's color as markup tag"""
 
-        return ";".join(value for value in self.color.values())
+        return ";".join(str(value) for value in self.color.values())
 
     @classmethod
-    def from_dict(cls, data: dict) -> User:
+    def from_dict(cls, data: dict[str, Any]) -> User:
         """Create User from server-data"""
 
         return cls(
@@ -177,7 +177,10 @@ class Chatroom:
         self._is_looping: bool = False
 
     def _request(self, method_name: str, **req_args: Any) -> Optional[Any]:
-        """Handle internal request, deal with error event calling"""
+        """Handle internal request, deal with error event calling
+
+        The type: ignore-s are because mypy thinks the methods called
+        will get a self argument, but they won't."""
 
         method = getattr(self.session, method_name)
         if method is None:
@@ -191,8 +194,9 @@ class Chatroom:
         except Exception as exception:
             # This should just raise a custom Exception.
             if exception_handler is not None:
-                # mypy thinks this will get a self argument
                 exception_handler(exception, method_name, req_args)  # type: ignore
+
+                # maybe this could return CapturedException/CapturedError?
                 return None
 
             raise exception
@@ -201,8 +205,9 @@ class Chatroom:
             return response.json()
 
         if error_handler is not None:
-            # mypy thinks this will get a self argument
             error_handler(response, method_name, req_args)  # type: ignore
+
+            # maybe this could return CapturedError?
             return None
 
         raise RuntimeError(
@@ -254,19 +259,11 @@ class Chatroom:
         assert self.user_id, "Please log in before getting channels!"
 
         if channels is None:
-            channels = self._request(
-                "get",
-                url=self.endpoints.channels,
-                headers={"userID": self.user_id},
-            )
-
+            channels = self.get_channels()
             if channels is None:
-                # Getting channels failed, but error was captured
                 return
 
-        for data in channels:
-            channel = Channel.from_dict(data)
-
+        for channel in channels:
             if channel not in self.channels:
                 self.channels.append(channel)
 
@@ -281,7 +278,7 @@ class Chatroom:
         if not self._is_looping and not event in [Event.ERROR, Event.NETWORK_EXCEPTION]:
             self._run()
 
-    def create(self, username: str, password: str) -> None:
+    def create(self, username: str, password: str) -> Optional[Chatroom]:
         """Create chatroom on the server"""
 
         data = {
@@ -299,15 +296,18 @@ class Chatroom:
 
         if response is None:
             # Creation did not succeed, but error was captured
-            return
+            return None
 
         self.name = response["chatroom_name"]
         self.uid = response["chatroomID"]
         self.user_id = response["userID"]
 
+        assert self.uid
         self.endpoints.set("uid", self.uid)
 
         self._update_channels(response["channels"])
+
+        return self
 
     def create_channel(self, name: str) -> Optional[Channel]:
         """Create a channel"""
@@ -327,6 +327,35 @@ class Chatroom:
         self._update_channels([channel])
 
         return channel
+
+    def get_users(self) -> Optional[list[User]]:
+        """Get all users in a chatroom"""
+
+        users = self._request(
+            "get",
+            data={"userID": self.uid},
+        )
+
+        if users is None:
+            # Getting users failed, but error was captured
+            return None
+
+        return [User.from_dict(user) for user in users]
+
+    def get_channels(self) -> Optional[list[Channel]]:
+        """Get all channels the logged-in user has access to"""
+
+        channels = self._request(
+            "get",
+            url=self.endpoints.channels,
+            headers={"userID": self.user_id},
+        )
+
+        if channels is None:
+            # Getting channels failed, but error was captured
+            return None
+
+        return [Channel.from_dict(channel) for channel in channels]
 
     def login(self, user_id: str, password: str) -> Optional[Any]:
         """Log into the chatroom with given credentials
@@ -354,7 +383,7 @@ class Chatroom:
         channel: Optional[Channel] = None,
         count: Optional[int] = None,
         time: Optional[int] = None,
-    ) -> Any:  # list[Message]:
+    ) -> Any:  # Optional[list[Message]]:
         """Get `count` messages"""
 
         if channel is not None:
@@ -381,9 +410,12 @@ class Chatroom:
             headers=headers,
         )
 
-        return data
+        if data is None:
+            # Getting messages failed, but error was captured
+            return None
 
         # return [Message.from_dict(message_data) for message_data in data]
+        return data
 
     def send(
         self,
@@ -457,7 +489,7 @@ class Teacup:
 
     def create_chatroom(
         self, url: str, name: str, username: str, password: str
-    ) -> Chatroom:
+    ) -> Optional[Chatroom]:
         """Create a new chatroom with given user as its owner, return a logged-in instance"""
 
         chat = Chatroom(url=url, name=name)
@@ -465,8 +497,8 @@ class Teacup:
         for event, callback in self._global_listeners.items():
             chat.subscribe(event, callback)
 
-        response = chat.create(username, password)
-        if response is None:
+        if chat.create(username, password) is None:
+            # Creation failed, but error was captured
             return None
 
         return chat
@@ -479,8 +511,8 @@ class Teacup:
 
         self._global_listeners[event] = callback
 
+    @staticmethod
     def thread(
-        self,
         target: Callable[..., Any],
         callback: Callable[..., Any],
         target_args: Optional[tuple[Any, ...]] = None,
@@ -490,16 +522,23 @@ class Teacup:
 
         Note: the signature of the callback function depends on the thread's target."""
 
+        args: tuple[Any, ...]
+        kwargs: dict[str, Any]
+
+        if target_args is None:
+            args = ()
+        else:
+            args = target_args
+
+        if target_kwargs is None:
+            kwargs = {}
+        else:
+            kwargs = {}
+
         def _inner() -> None:
             """The wrapper that calls target & callback"""
 
-            callback(target(*target_args, **target_kwargs))
-
-        if target_args is None:
-            target_args = ()
-
-        if target_kwargs is None:
-            target_kwargs = {}
+            callback(target(*args, **kwargs))
 
         runner = Thread(target=_inner)
         runner.start()

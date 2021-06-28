@@ -28,18 +28,16 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
     * [ ] Message:
         + Currently unknown
 
-- [x] Chatroom
-    * endpoint: `/chatroom/`
+- [x] Chatroom: `/chatroom/`
     * [x] get: Unknown
     * [x] post:
         + username: `str`
         + password: `str`
         + chatroom_name: `str`
         + -> Create chatroom
-    * note: this endpoint **not** require `chatroom_id`
+    * note: this endpoint does **not** require `chatroom_id`
 
-- [x] Login
-    * endpoint: `/login/<chatroom_id>`
+- [x] Login: `/login/<chatroom_id>`
     * [x] get: 
         + userID: `str`
         + -> Check if logged in:
@@ -54,17 +52,14 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
             - channels: `list[Channel]`
 
     * note: `userID` to become `username` in the near future.
-    * note: this endpoint **not** require `chatroom_id`
 
-- [ ] Users
-    * endpoint: `/users/<chatroom_id>`
+- [ ] Users: `/users/<chatroom_id>`
     * [ ] get:
         + userID: `str`
         + -> Return all users in a chatroom: `list[User]`
     * [x] post: None
 
-- [ ] Channels:
-    * endpoint: `/channels/<chatroom_id>`
+- [ ] Channels: `/channels/<chatroom_id>`
     * [ ] get:
         + userID: `str`
         + -> Return all channels a user has read-access to: `list[Channel]`
@@ -73,8 +68,7 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
         + channel_name: `str`
         + -> Create a chatroom
 
-- [x] Messages
-    * endpoint: `/messages/<chatroom_id>`
+- [x] Messages: `/messages/<chatroom_id>`
     * [x] get:
         + userID: `str`
         + count: `Optional[int] <= 100`

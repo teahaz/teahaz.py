@@ -17,7 +17,7 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
             - w: `bool`
             - x: `bool`
 
-    * [ ] User:
+    * [x] User:
         + userID: `str`
         + username: `str`
         + color: `dict`, items:

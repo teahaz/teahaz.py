@@ -121,6 +121,30 @@ class Channel:
         )
 
 
+@dataclass
+class User:
+    """A dataclass to store users"""
+
+    uid: str
+    username: str
+    color: dict[str, int]
+
+    def get_color(self) -> str:
+        """Get user's color as markup tag"""
+
+        return ";".join(value for value in self.color.values())
+
+    @classmethod
+    def from_dict(cls, data: dict) -> User:
+        """Create User from server-data"""
+
+        return cls(
+            uid=data["userID"],
+            username=data["username"],
+            color=data["color"],
+        )
+
+
 class Chatroom:
     """TODO"""
 
@@ -249,6 +273,14 @@ class Chatroom:
         if self.active_channel is None and len(self.channels) > 0:
             self.active_channel = self.channels[0]
 
+    def subscribe(self, event: Event, callback: EventCallback) -> None:
+        """Listen for event and run callback"""
+
+        self._listeners[event] = callback
+
+        if not self._is_looping and not event in [Event.ERROR, Event.NETWORK_EXCEPTION]:
+            self._run()
+
     def create(self, username: str, password: str) -> None:
         """Create chatroom on the server"""
 
@@ -296,6 +328,27 @@ class Chatroom:
 
         return channel
 
+    def login(self, user_id: str, password: str) -> Optional[Any]:
+        """Log into the chatroom with given credentials
+
+        Temporary: user_id will be replaced with username"""
+
+        data = {
+            "userID": user_id,
+            "password": password,
+        }
+
+        response = self._request(
+            "post",
+            url=self.endpoints.login,
+            json=data,
+        )
+
+        self.user_id = user_id
+        self._update_channels()
+
+        return response
+
     def get_messages(
         self,
         channel: Optional[Channel] = None,
@@ -331,27 +384,6 @@ class Chatroom:
         return data
 
         # return [Message.from_dict(message_data) for message_data in data]
-
-    def login(self, user_id: str, password: str) -> Optional[Any]:
-        """Log into the chatroom with given credentials
-
-        Temporary: user_id will be replaced with username"""
-
-        data = {
-            "userID": user_id,
-            "password": password,
-        }
-
-        response = self._request(
-            "post",
-            url=self.endpoints.login,
-            json=data,
-        )
-
-        self.user_id = user_id
-        self._update_channels()
-
-        return response
 
     def send(
         self,
@@ -391,14 +423,6 @@ class Chatroom:
             url=self.url + endpoint.format(chatroom_id=self.uid),
             json=msg,
         )
-
-    def subscribe(self, event: Event, callback: EventCallback) -> None:
-        """Listen for event and run callback"""
-
-        self._listeners[event] = callback
-
-        if not self._is_looping and not event in [Event.ERROR, Event.NETWORK_EXCEPTION]:
-            self._run()
 
 
 class Teacup:

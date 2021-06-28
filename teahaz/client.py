@@ -23,6 +23,7 @@ __all__ = [
     "Event",
     "Teacup",
     "Chatroom",
+    "Channel",
     "Message",
 ]
 
@@ -168,7 +169,6 @@ class Chatroom:
             if exception_handler is not None:
                 # mypy thinks this will get a self argument
                 exception_handler(exception, method_name, req_args)  # type: ignore
-
                 return None
 
             raise exception
@@ -441,7 +441,9 @@ class Teacup:
         for event, callback in self._global_listeners.items():
             chat.subscribe(event, callback)
 
-        chat.create(username, password)
+        response = chat.create(username, password)
+        if response is None:
+            return None
 
         return chat
 
@@ -452,3 +454,28 @@ class Teacup:
             chatroom.subscribe(event, callback)
 
         self._global_listeners[event] = callback
+
+    def thread(
+        self,
+        target: Callable[..., Any],
+        callback: Callable[..., Any],
+        target_args: Optional[tuple[Any, ...]] = None,
+        target_kwargs: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Run target(*target_args, **target_kwargs) in a thread, call callback with its result
+
+        Note: the signature of the callback function depends on the thread's target."""
+
+        def _inner() -> None:
+            """The wrapper that calls target & callback"""
+
+            callback(target(*target_args, **target_kwargs))
+
+        if target_args is None:
+            target_args = ()
+
+        if target_kwargs is None:
+            target_kwargs = {}
+
+        runner = Thread(target=_inner)
+        runner.start()

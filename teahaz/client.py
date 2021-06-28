@@ -187,7 +187,7 @@ class Chatroom:
         self.active_channel: Optional[Channel] = None
         self.channels: list[Channel] = []
 
-        self.endpoints: EndpointContainer
+        self.event_thread: Thread
 
         # If the chatroom doesn't exist yet its endpoints' uid
         # is only filled in the create() method
@@ -195,6 +195,7 @@ class Chatroom:
 
         self._listeners: dict[Event, EventCallback] = {}
         self._is_looping: bool = False
+        self._is_stopped: bool = False
 
     def _request(self, method_name: str, **req_args: Any) -> Optional[Any]:
         """Handle internal request, deal with error event calling
@@ -250,7 +251,7 @@ class Chatroom:
         def _loop() -> None:
             """The main event loop for a chatroom"""
 
-            while True:
+            while not self._is_stopped:
                 # This needs server-side support
                 # messages = self.get_since(self._last_get_time)
                 messages: list[Message] = []
@@ -270,8 +271,9 @@ class Chatroom:
 
                 sleep(self.interval)
 
-        event_thread = Thread(target=_loop, name=self.uid)
-        event_thread.start()
+        self.event_thread = Thread(target=_loop)
+        self.event_thread.start()
+        self._update_thread_name()
 
     def _update_channels(self, channels: Optional[list[Channel]] = None) -> None:
         """Update channels available to the user"""
@@ -290,6 +292,11 @@ class Chatroom:
         if self.active_channel is None and len(self.channels) > 0:
             self.active_channel = self.channels[0]
 
+    def _update_thread_name(self) -> None:
+        """Set self.event_thread.name"""
+
+        self.event_thread.name = f'Chatroom(uid="{self.uid}")'
+
     def subscribe(self, event: Event, callback: EventCallback) -> None:
         """Listen for event and run callback"""
 
@@ -297,6 +304,11 @@ class Chatroom:
 
         if not self._is_looping and not event in [Event.ERROR, Event.NETWORK_EXCEPTION]:
             self._run()
+
+    def stop(self) -> None:
+        """Stop event loop"""
+
+        self._is_stopped = True
 
     def create(self, username: str, password: str) -> Optional[Chatroom]:
         """Create chatroom on the server"""
@@ -324,8 +336,11 @@ class Chatroom:
 
         assert self.uid
         self.endpoints.set("uid", self.uid)
+        self._update_thread_name()
 
-        self._update_channels(response["channels"])
+        self._update_channels(
+            [Channel.from_dict(channel) for channel in response["channels"]]
+        )
 
         return self
 
@@ -416,26 +431,26 @@ class Chatroom:
             )
 
         else:
-            raise ValueError("No channel was provided.")
+            channel = self.active_channel
 
         headers = {
+            "userID": self.user_id,
             "channelID": channel.uid,
             "count": count,
             "time": time,
         }
 
-        data = self._request(
+        messages = self._request(
             "get",
             url=self.endpoints.messages,
             headers=headers,
         )
 
-        if data is None:
+        if messages is None:
             # Getting messages failed, but error was captured
             return None
 
-        # return [Message.from_dict(message_data) for message_data in data]
-        return data
+        return [Message.from_dict(message) for message in messages]
 
     def send(
         self,
@@ -472,7 +487,7 @@ class Chatroom:
 
         return self._request(
             "post",
-            url=self.url + endpoint.format(chatroom_id=self.uid),
+            url=endpoint,
             json=msg,
         )
 
@@ -486,6 +501,17 @@ class Teacup:
         self.chatrooms: list[Chatroom] = []
         self._global_listeners: dict[Event, EventCallback] = {}
 
+    def stop(self) -> None:
+        """Stop all chatroom threads"""
+
+        for chatroom in self.chatrooms:
+            chatroom.stop()
+
+    def get_threads(self) -> list[str]:
+        """Get names of all chatroom threads"""
+
+        return [chatroom.event_thread.name for chatroom in self.chatrooms]
+
     def login(self, username: str, password: str, chatroom: str, url: str) -> Chatroom:
         """Create a logged-in chatroom instance"""
 
@@ -495,6 +521,7 @@ class Teacup:
             chat.subscribe(event, callback)
 
         chat.login(username, password)
+        self.chatrooms.append(chat)
 
         return chat
 
@@ -522,6 +549,7 @@ class Teacup:
             # Creation failed, but error was captured
             return None
 
+        self.chatrooms.append(chat)
         return chat
 
     def subscribe_all(self, event: Event, callback: EventCallback) -> None:

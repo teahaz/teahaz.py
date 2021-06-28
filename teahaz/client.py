@@ -93,9 +93,27 @@ class Message:
 
     Note: This is only meant to be used internally."""
 
+    uid: str
+    channel_id: str
+    user_id: str
+    key_id: str
+    send_time: float
+    message_type: str
+    data: Union[str, bytes]
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Message:
         """Create Message from server-data"""
+
+        return cls(
+            uid=data["messageID"],
+            channel_id=data["channelID"],
+            user_id=data["userID"],
+            key_id=data["keyID"],
+            send_time=data["send_time"],
+            message_type=data["type"],
+            data=data["data"],
+        )
 
 
 @dataclass

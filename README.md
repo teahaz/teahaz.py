@@ -7,7 +7,7 @@ teahaz.py
 ## My ad-hoc checklist/API documentation
 Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<endpoint>`
 
-- [ ] Datatypes
+- [x] Datatypes
     * [x] Channel:
         + channel_name: `str`
         + channelID: `str`,
@@ -25,8 +25,14 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
             - g: `int`
             - b: `int`
 
-    * [ ] Message:
-        + Currently unknown
+    * [x] Message:
+        + messageID: `str`
+        + channelID: `str`
+        + userID: `str`
+        + keyID: `str`
+        + send_time: `float`
+        + type: `str`
+        + data: `Union[str, bytes]`
 
 - [x] Chatroom: `/chatroom/`
     * [x] get: Unknown

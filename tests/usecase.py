@@ -86,7 +86,7 @@ def create_chatroom_test(
     )
 
     assert chat is not None
-    print("✅\n")
+    print("✅")
 
     return chat
 
@@ -94,10 +94,11 @@ def create_chatroom_test(
 def create_channel_test(chat: Chatroom, name: str) -> Channel:
     """Test: create channel"""
 
+    progress_print("[italic]Creating channel... ")
     channel = chat.create_channel("main")
 
     assert channel is not None
-    print("✅\n")
+    print("✅")
 
     return channel
 
@@ -109,20 +110,25 @@ def main() -> None:
 
     cup = Teacup()
     cup.subscribe_all(Event.ERROR, handle_error)
+    cup.subscribe_all(Event.MSG_NEW, lambda _: None)
 
     chat = create_chatroom_test(
-        cup, "https://teahaz.co.uk", "test-alma", "alma", "1234567890"
+        cup, "http://localhost:13337", "test-alma", "alma", "1234567890"
     )
 
     channel = create_channel_test(chat, "__main__")
-
     chat.send("hello world!")
-    print(chat.get_messages())
-    input()
 
-    print(chat)
+    print("\nMessages:")
+    print(
+        "\n".join(
+            "    " + message.uid + ": " + message.data
+            for message in chat.get_messages()
+        )
+    )
 
-    input()
+    cup.stop()
+    print("\nEverything worked! ✅")
 
 
 if __name__ == "__main__":

@@ -4,29 +4,86 @@ teahaz.py
 [![PyPI version](https://badge.fury.io/py/teahaz.py.svg)](https://badge.fury.io/py/teahaz.py)
 [![Pylint quality](assets/quality.svg)](https://github.com/bczsalba/pytermgui/blob/master/utils/create_badge.py)
 
-### implemented/planned methods
-**internal**
-* [x] \_request
-* [x] \_register
+## My ad-hoc checklist/API documentation
+Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<endpoint>`
 
-**basics**
-* [x] login
-* [x] get_messages(since)
-* [x] get_file
-* [x] send_message
-* [x] send_file
-* [x] create_invite
-* [x] use_invite
-* [x] create_chatroom
-* [x] get_by_id
-* [x] message_delete
+- [ ] Datatypes
+    * [x] Channel:
+        + channel_name: `str`
+        + channelID: `str`,
+        + public: `bool`
+        + permissions: `dict`, items:
+            - r: `bool`
+            - w: `bool`
+            - x: `bool`
 
-**utility**
-* [x] add_new_server
-* [x] set_chatroom
+    * [ ] User:
+        + userID: `str`
+        + username: `str`
+        + color: `dict`, items:
+            - r: `int`
+            - g: `int`
+            - b: `int`
 
-**events**
-* [x] on_message
+    * [ ] Message:
+        + Currently unknown
 
-**future**
-* [ ] on_download(percentage/status)
+- [x] Chatroom
+    * endpoint: `/chatroom/`
+    * [x] get: Unknown
+    * [x] post:
+        + username: `str`
+        + password: `str`
+        + chatroom_name: `str`
+        + -> Create chatroom
+    * note: this endpoint **not** require `chatroom_id`
+
+- [x] Login
+    * endpoint: `/login/<chatroom_id>`
+    * [x] get: 
+        + userID: `str`
+        + -> Check if logged in:
+            - `200`: logged in
+            - `401`: not logged in
+    * [x] post:
+        + userID: `str`
+        + password: `str`
+        + -> Return chatroom data
+            - chatroomID: `str`
+            - userID: `str`
+            - channels: `list[Channel]`
+
+    * note: `userID` to become `username` in the near future.
+    * note: this endpoint **not** require `chatroom_id`
+
+- [ ] Users
+    * endpoint: `/users/<chatroom_id>`
+    * [ ] get:
+        + userID: `str`
+        + -> Return all users in a chatroom: `list[User]`
+    * [x] post: None
+
+- [ ] Channels:
+    * endpoint: `/channels/<chatroom_id>`
+    * [ ] get:
+        + userID: `str`
+        + -> Return all channels a user has read-access to: `list[Channel]`
+    * [x] post:
+        + userID: `str`
+        + channel_name: `str`
+        + -> Create a chatroom
+
+- [x] Messages
+    * endpoint: `/messages/<chatroom_id>`
+    * [x] get:
+        + userID: `str`
+        + count: `Optional[int] <= 100`
+        + time: (epoch) `float`
+        + channelID: `Optional[str]`
+        + -> Get list of messages: `list[Message]`
+    * [x] post
+        + userID: `str`
+        + channelID: `str`
+        + replyID: `str`
+        + data: `str`
+    * note: `channelID` can filter messages by channel

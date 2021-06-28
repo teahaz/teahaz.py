@@ -1,8 +1,3 @@
-Todo
-----
-- thread support?
-    * maybe a `cup.threaded()` helper?
-
 Example usage of the teahaz.py interface:
 -----------------------------------------
 ```python {{{1

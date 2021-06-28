@@ -80,4 +80,5 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
         + channelID: `str`
         + replyID: `str`
         + data: `str`
+        + -> Send a message
     * note: `channelID` can filter messages by channel

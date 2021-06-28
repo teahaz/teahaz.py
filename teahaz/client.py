@@ -123,7 +123,9 @@ class Channel:
 
 @dataclass
 class User:
-    """A dataclass to store users"""
+    """A dataclass to store users
+
+    Note: This is only meant to be used internally."""
 
     uid: str
     username: str
@@ -494,6 +496,7 @@ class Teacup:
 
         chat = Chatroom(url=url, name=name)
 
+        # Subscribe chatroom to all global events we are subscribed to
         for event, callback in self._global_listeners.items():
             chat.subscribe(event, callback)
 

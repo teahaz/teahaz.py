@@ -6,8 +6,8 @@ Example usage of the teahaz.py interface:
 >>> cup = Teacup()
 empty Teacup()
 
->>> chat = cup.login("alma", "1234567890", chatroom="thisisachatroomid")
-Chatroom(uid="thisisachatroomid")
+>>> chat = cup.login("alma", "1234567890", chatroom="thisisachatroomid", url="https://teahaz.co.uk")
+Chatroom(uid="thisisachatroomid", ...)
 
 >>> def handler(message: Message, chatroom: Chatroom):
 ...     print("message received!")
@@ -19,7 +19,7 @@ Chatroom(uid="thisisachatroomid")
 >>> chat.subscribe(Event.MSG_NEW, handler)
 
 >>> chat.send("hello world!")
-Message(sender="alma", content="hello world!" ...)
+Message(sender="alma", content="hello world!", ...)
 
 >>> ...
 'message received!'
@@ -36,17 +36,16 @@ Message(sender="alma", content="hello world!" ...)
 >>> def britney(message: Message, chatroom: Chatroom)
 ...     if message.type == "file":
 ...         return
-... 
 ...     if "britney" in message.content:
 ...         chatroom.send("wassup")
 
->>> cup.subscribe_all("message", britney)
+>>> cup.subscribe_all(Event.MSG_NEW, britney)
 'Now britney is run on every message from any chatroom'
 
 >>> cup.chatrooms
 [Chatroom(uid="thisisachatroomid"), Chatroom(uid="thisisanother")]
 
 >>> chat = cup.get_chatroom("thisisanother")
-Chatroom(uid="thisisanother")
+Chatroom(uid="thisisanother", ...)
 ```
 <!-- }}} -->

@@ -323,6 +323,47 @@ class Chatroom:
 
         self.event_thread.name = f'Chatroom(uid="{self.uid}")'
 
+    def _get_messages(
+        self,
+        method: str,
+        channel: Optional[Channel] = None,
+        count: Optional[str] = None,
+        time: Optional[str] = None,
+    ) -> Optional[list[Message]]:
+        """Get messages by time (since) or count"""
+
+        if channel is not None:
+            self.active_channel = channel
+
+        elif self.active_channel is None:
+            raise ValueError(
+                "Please use either the Chatroom.set_channel() function"
+                + " or provide `channel` as a non-null value!"
+            )
+
+        else:
+            channel = self.active_channel
+
+        headers = {
+            "get-method": method,
+            "userID": self.user_id,
+            "channelID": channel.uid,
+            "count": count,
+            "time": time,
+        }
+
+        messages = self._request(
+            "get",
+            url=self.endpoints.messages,
+            headers=headers,
+        )
+
+        if messages is None:
+            # Getting messages failed, but error was captured
+            return None
+
+        return [Message.from_dict(message) for message in messages]
+
     def subscribe(self, event: Event, callback: EventCallback) -> None:
         """Listen for event and run callback"""
 
@@ -441,51 +482,13 @@ class Chatroom:
 
         return response
 
-    def _get_messages(
-        self,
-        method: str,
-        channel: Optional[Channel] = None,
-        count: Optional[str] = None,
-        time: Optional[str] = None,
-    ) -> Optional[list[Message]]:
-        """Get messages by time (since) or count"""
-
-        if channel is not None:
-            self.active_channel = channel
-
-        elif self.active_channel is None:
-            raise ValueError(
-                "Please use either the Chatroom.set_channel() function"
-                + " or provide `channel` as a non-null value!"
-            )
-
-        else:
-            channel = self.active_channel
-
-        headers = {
-            "get-method": method,
-            "userID": self.user_id,
-            "channelID": channel.uid,
-            "count": count,
-            "time": time,
-        }
-
-        messages = self._request(
-            "get",
-            url=self.endpoints.messages,
-            headers=headers,
-        )
-
-        if messages is None:
-            # Getting messages failed, but error was captured
-            return None
-
-        return [Message.from_dict(message) for message in messages]
-
     def get_since(
         self, since: float, channel: Optional[Channel] = None
     ) -> Optional[list[Message]]:
-        """Get messages since epoch timestamp"""
+        """Get messages since epoch timestamp
+
+        Note: This method is limited to getting 100 messages at a time,
+        and should NOT be used for anything that can overload that."""
 
         return self._get_messages(
             "since",

@@ -139,7 +139,7 @@ def main() -> None:
     cup.subscribe_all(Event.ERROR, handle_error)
 
     chat = create_chatroom_test(
-        cup, "https://teahaz.co.uk", "test-alma", "alma", "1234567890"
+        cup, "http://localhost:13337", "test-alma", "alma", "1234567890"
     )
 
     create_channel_test(chat, "__main__")

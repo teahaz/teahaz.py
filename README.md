@@ -34,6 +34,12 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
         + type: `str`
         + data: `Union[str, bytes]`
 
+    * [ ] Invite
+        + uid: `str`
+        + uses: `int`
+        + expiration-time: `float`
+        + data: `str`
+
 - [x] Chatroom: `/chatroom/`
     * [x] get: Unknown
     * [x] post:
@@ -89,3 +95,15 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
         + data: `str`
         + -> Send a message
     * note: `channelID` can filter messages by channel
+
+- [ ] Invites: `/invites/<chatroom_id>`
+    * [ ] get
+        + userID: `str`
+        + users: `Optional[int]`
+        + expiration-time: (epoch) `Optional[float]`
+        + -> Create an invite
+    * [ ] post
+        + inviteID: `str`
+        + username: `str`
+        + password: `str`
+        + -> Use an invite

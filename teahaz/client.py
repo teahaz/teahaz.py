@@ -126,7 +126,7 @@ class Channel:
     uid: str
     name: str
     public: bool
-    permissions: dict[str, bool]
+    # permissions: dict[str, bool]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Channel:
@@ -136,7 +136,7 @@ class Channel:
             uid=data["channelID"],
             name=data["channel_name"],
             public=data["public"],
-            permissions=data["permissions"],
+            # permissions=data["permissions"],
         )
 
 
@@ -163,6 +163,31 @@ class User:
             uid=data["userID"],
             username=data["username"],
             color=data["color"],
+        )
+
+
+@dataclass
+class Invite:
+    """A dataclass to store invites
+
+    Note: This is only meant to be used internally."""
+
+    url: str
+    uid: str
+    uses: int
+    chatroom_id: str
+    expiration_time: float
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Invite:
+        """Get invite from server-data"""
+
+        return cls(
+            url=data["url"],
+            uses=data["uses"],
+            uid=data["inviteID"],
+            chatroom_id=data["chatroomID"],
+            expiration_time=data["expiration-time"],
         )
 
 
@@ -301,6 +326,22 @@ class Chatroom:
         self.event_thread.start()
         self._update_thread_name()
 
+    def _initialize_from_response(self, response: dict) -> None:
+        """Initialize data of chatroom from a response dict"""
+
+        self.name = response["chatroom_name"]
+        self.uid = response["chatroomID"]
+        self.user_id = response["userID"]
+
+        assert self.uid is not None
+        self.endpoints.set("uid", self.uid)
+        self._update_thread_name()
+
+        self._update_channels(
+            [Channel.from_dict(channel) for channel in response["channels"]]
+        )
+        self._is_server_side = True
+
     def _update_channels(self, channels: Optional[list[Channel]] = None) -> None:
         """Update channels available to the user"""
 
@@ -397,19 +438,7 @@ class Chatroom:
             # Creation did not succeed, but error was captured
             return None
 
-        self.name = response["chatroom_name"]
-        self.uid = response["chatroomID"]
-        self.user_id = response["userID"]
-
-        assert self.uid
-        self.endpoints.set("uid", self.uid)
-        self._update_thread_name()
-
-        self._update_channels(
-            [Channel.from_dict(channel) for channel in response["channels"]]
-        )
-        self._is_server_side = True
-
+        self._initialize_from_response(response)
         return self
 
     def create_channel(self, name: str) -> Optional[Channel]:
@@ -430,6 +459,50 @@ class Chatroom:
         self._update_channels([channel])
 
         return channel
+
+    def create_invite(
+        self, uses: int = 1, expiration_time: Optional[float] = None
+    ) -> Optional[Invite]:
+        """Create an invite to the chatroom"""
+
+        headers = {
+            "userID": self.user_id,
+        }
+
+        if uses is not None:
+            headers["uses"] = str(uses)
+
+        if expiration_time is not None:
+            headers["expiration-time"] = str(expiration_time)
+
+        response = self._request("get", url=self.endpoints.invites, headers=headers)
+
+        if response is None:
+            return None
+
+        response["url"] = self.url
+        response["chatroomID"] = self.uid
+        return Invite.from_dict(response)
+
+    def create_from_invite(
+        self, invite: Invite, username: str, password: str
+    ) -> Optional[Chatroom]:
+        """Initialize chatroom from an invite"""
+
+        data = {
+            "inviteID": invite.uid,
+            "username": username,
+            "password": password,
+        }
+
+        response = self._request("post", url=self.endpoints.invites, json=data)
+
+        if response is None:
+            return None
+
+        self._initialize_from_response(response)
+
+        return self
 
     def get_users(self) -> Optional[list[User]]:
         """Get all users in a chatroom"""
@@ -562,12 +635,6 @@ class Teacup:
         self.chatrooms: list[Chatroom] = []
         self._global_listeners: dict[Event, EventCallback] = {}
 
-    def stop(self) -> None:
-        """Stop all chatroom threads"""
-
-        for chatroom in self.chatrooms:
-            chatroom.stop()
-
     def get_threads(self) -> list[str]:
         """Get names of all chatroom threads"""
 
@@ -585,6 +652,12 @@ class Teacup:
         self.chatrooms.append(chat)
 
         return chat
+
+    def stop(self) -> None:
+        """Stop all chatroom threads"""
+
+        for chatroom in self.chatrooms:
+            chatroom.stop()
 
     def get_chatroom(self, name: str) -> Optional[Chatroom]:
         """Get first chatroom by matching name"""
@@ -607,6 +680,19 @@ class Teacup:
             chat.subscribe(event, callback)
 
         if chat.create(username, password) is None:
+            # Creation failed, but error was captured
+            return None
+
+        self.chatrooms.append(chat)
+        return chat
+
+    def use_invite(
+        self, invite: Invite, username: str, password: str
+    ) -> Optional[Chatroom]:
+        """Use invite to get a chatroom"""
+
+        chat = Chatroom(url=invite.url, uid=invite.chatroom_id)
+        if chat.create_from_invite(invite, username, password) is None:
             # Creation failed, but error was captured
             return None
 

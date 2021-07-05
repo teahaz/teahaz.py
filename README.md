@@ -96,13 +96,13 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
         + -> Send a message
     * note: `channelID` can filter messages by channel
 
-- [ ] Invites: `/invites/<chatroom_id>`
-    * [ ] get
+- [x] Invites: `/invites/<chatroom_id>`
+    * [x] get
         + userID: `str`
-        + users: `Optional[int]`
+        + uses: `Optional[int]`
         + expiration-time: (epoch) `Optional[float]`
         + -> Create an invite
-    * [ ] post
+    * [x] post
         + inviteID: `str`
         + username: `str`
         + password: `str`

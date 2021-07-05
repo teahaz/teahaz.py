@@ -78,7 +78,8 @@ Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<end
     * [x] get:
         + userID: `str`
         + count: `Optional[int] <= 100`
-        + time: (epoch) `float`
+        + time: (epoch) `Optional[float]`
+        + get-method: one of `["since", "count"]`
         + channelID: `Optional[str]`
         + -> Get list of messages: `list[Message]`
     * [x] post

@@ -1,7 +1,7 @@
+from time import sleep
 from typing import Any
 from requests import Response
 
-from teahaz import Teacup, Event, Message, Chatroom, Channel
 from pytermgui import (
     Container,
     Prompt,
@@ -11,6 +11,7 @@ from pytermgui import (
     define_tag,
     markup_to_ansi,
 )
+from teahaz import Teacup, Event, Chatroom, Channel
 
 
 def handle_error(response: Response, method: str, req_kwargs: dict[str, Any]) -> None:
@@ -33,10 +34,10 @@ def handle_error(response: Response, method: str, req_kwargs: dict[str, Any]) ->
     else:
         define_tag("code-color", str(colors.get(code)))
 
-    root = Container() + Label(f"[error-title]Error occured!")
-    root += Prompt(f"[error-method]Method:", "[157 bold]" + method.upper())
-    root += Prompt(f"[error-code]Code:", f"[code-color]{code}")
-    root += Prompt(f"[error-message]Message:", '[247 italic]"' + response.json() + '"')
+    root = Container() + Label("[error-title]Error occured!")
+    root += Prompt("[error-method]Method:", "[157 bold]" + method.upper())
+    root += Prompt("[error-code]Code:", f"[code-color]{code}")
+    root += Prompt("[error-message]Message:", '[247 italic]"' + response.json() + '"')
 
     root += Label("[error-data]request_args[/] = {", align=Label.ALIGN_LEFT)
     for key, item in req_kwargs.items():
@@ -69,7 +70,7 @@ def setup() -> None:
 def progress_print(content: str) -> None:
     """Print without end newline, with flush & markup parsing"""
 
-    print(markup_to_ansi(content), flush=True, end="")
+    print(f"{markup_to_ansi(content):<35}", flush=True, end="")
 
 
 def create_chatroom_test(
@@ -95,12 +96,38 @@ def create_channel_test(chat: Chatroom, name: str) -> Channel:
     """Test: create channel"""
 
     progress_print("[italic]Creating channel... ")
-    channel = chat.create_channel("main")
+    channel = chat.create_channel(name)
 
     assert channel is not None
     print("✅")
 
     return channel
+
+
+def message_test(chat: Chatroom, count: int = 100) -> None:
+    """Test: send count messages, check if sent & receieved are the same
+
+    Note: This usecase is not realistic at all, it's just to test the
+    chatroom loop's functionality."""
+
+    progress_print(f"[italic]Sending {count} messages... ")
+    sent: list[str] = []
+    rec: list[str] = []
+
+    chat.subscribe(
+        Event.MSG_NEW,
+        lambda msg: rec.append(msg.uid),
+    )
+
+    for i in range(count):
+        message = "this is message " + str(i)
+        sent.append(chat.send(message)["messageID"])
+
+    # we need to wait until the next loop iteration
+    sleep(chat.interval)
+
+    assert sent == rec
+    print("✅")
 
 
 def main() -> None:
@@ -110,25 +137,17 @@ def main() -> None:
 
     cup = Teacup()
     cup.subscribe_all(Event.ERROR, handle_error)
-    cup.subscribe_all(Event.MSG_NEW, lambda _: None)
 
     chat = create_chatroom_test(
-        cup, "http://localhost:13337", "test-alma", "alma", "1234567890"
+        cup, "https://teahaz.co.uk", "test-alma", "alma", "1234567890"
     )
 
-    channel = create_channel_test(chat, "__main__")
+    create_channel_test(chat, "__main__")
     chat.send("hello world!")
 
-    print("\nMessages:")
-    print(
-        "\n".join(
-            "    " + message.uid + ": " + message.data
-            for message in chat.get_messages()
-        )
-    )
-
+    # 100 is the server limit
+    message_test(chat, 50)
     cup.stop()
-    print("\nEverything worked! ✅")
 
 
 if __name__ == "__main__":

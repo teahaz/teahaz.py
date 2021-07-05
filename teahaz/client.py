@@ -11,8 +11,8 @@ The module containing the main objects for the Teahaz API wrapper
 
 from __future__ import annotations
 
-from time import sleep
 from enum import Enum, auto
+from time import sleep, time as epoch
 from threading import Thread
 from dataclasses import dataclass
 from typing import Callable, Any, Union, Optional
@@ -58,6 +58,7 @@ class EndpointContainer:
         "files": "{base}/files/{chatroom_id}",
         "messages": "{base}/messages/{chatroom_id}",
         "channels": "{base}/channels/{chatroom_id}",
+        "invites": "{base}/invites/{chatroom_id}",
     }
 
     def __init__(self, url: str, uid: Optional[str] = None) -> None:
@@ -187,15 +188,19 @@ class Chatroom:
         self.active_channel: Optional[Channel] = None
         self.channels: list[Channel] = []
 
-        self.event_thread: Thread
+        self.event_thread = Thread(target=self._loop)
 
         # If the chatroom doesn't exist yet its endpoints' uid
         # is only filled in the create() method
         self.endpoints = EndpointContainer(self.url, self.uid)
 
+        self.messages: list[Message] = []
+
         self._listeners: dict[Event, EventCallback] = {}
         self._is_looping: bool = False
         self._is_stopped: bool = False
+        self._is_server_side: bool = False
+        self._last_get_time: float = epoch()
 
     def _request(self, method_name: str, **req_args: Any) -> Optional[Any]:
         """Handle internal request, deal with error event calling
@@ -245,33 +250,54 @@ class Chatroom:
 
         callback(*data)
 
-    def _run(self) -> None:
-        """Run monitoring loop"""
+    def _loop(self) -> None:
+        """The main event loop for a chatroom"""
 
-        def _loop() -> None:
-            """The main event loop for a chatroom"""
+        ids = [msg.uid for msg in self.messages]
+        self._last_get_time = epoch()
 
-            while not self._is_stopped:
-                # This needs server-side support
-                # messages = self.get_since(self._last_get_time)
-                messages: list[Message] = []
+        while not self._is_stopped:
+            if self.active_channel is None:
+                sleep(self.interval)
+                continue
+
+            # We need to assign to a temporary
+            # variable, otherwise messages can
+            # get stuck between setting & getting.
+            previous = self._last_get_time
+            self._last_get_time = epoch()
+            messages = self.get_since(previous)
+
+            if messages is not None:
+                # there is no good way to type these
+                messages.sort(key=lambda msg: msg.send_time)
 
                 for message in messages:
-                    if message.type == "delete":
+                    # This is needed to avoid duplicates
+                    if message.uid in ids:
+                        continue
+
+                    self.messages.append(message)
+                    ids.append(message.uid)
+
+                    if message.message_type == "delete":
                         self._notify(Event.MSG_DEL, message)
 
-                    elif message.type == "system":
+                    elif message.message_type == "system":
                         self._notify(Event.MSG_SYS, message)
 
-                    elif message.type == "system-silent":
+                    elif message.message_type == "system-silent":
                         self._notify(Event.MSG_SYS_SILENT, message)
 
                     else:
                         self._notify(Event.MSG_NEW, message)
 
-                sleep(self.interval)
+            sleep(self.interval)
 
-        self.event_thread = Thread(target=_loop)
+    def _run(self) -> None:
+        """Run monitoring loop"""
+
+        self._is_looping = True
         self.event_thread.start()
         self._update_thread_name()
 
@@ -341,6 +367,7 @@ class Chatroom:
         self._update_channels(
             [Channel.from_dict(channel) for channel in response["channels"]]
         )
+        self._is_server_side = True
 
         return self
 
@@ -410,16 +437,18 @@ class Chatroom:
 
         self.user_id = user_id
         self._update_channels()
+        self._is_server_side = True
 
         return response
 
-    def get_messages(
+    def _get_messages(
         self,
+        method: str,
         channel: Optional[Channel] = None,
-        count: Optional[int] = None,
-        time: Optional[int] = None,
-    ) -> Any:  # Optional[list[Message]]:
-        """Get `count` messages"""
+        count: Optional[str] = None,
+        time: Optional[str] = None,
+    ) -> Optional[list[Message]]:
+        """Get messages by time (since) or count"""
 
         if channel is not None:
             self.active_channel = channel
@@ -434,6 +463,7 @@ class Chatroom:
             channel = self.active_channel
 
         headers = {
+            "get-method": method,
             "userID": self.user_id,
             "channelID": channel.uid,
             "count": count,
@@ -451,6 +481,28 @@ class Chatroom:
             return None
 
         return [Message.from_dict(message) for message in messages]
+
+    def get_since(
+        self, since: float, channel: Optional[Channel] = None
+    ) -> Optional[list[Message]]:
+        """Get messages since epoch timestamp"""
+
+        return self._get_messages(
+            "since",
+            channel,
+            time=str(since),
+        )
+
+    def get_count(
+        self, count: int, channel: Optional[Channel] = None
+    ) -> Optional[list[Message]]:
+        """Get `count` messages timestamp"""
+
+        return self._get_messages(
+            "count",
+            channel,
+            str(count),
+        )
 
     def send(
         self,
@@ -485,11 +537,17 @@ class Chatroom:
             "data": content,
         }
 
-        return self._request(
+        sent = self._request(
             "post",
             url=endpoint,
             json=msg,
         )
+
+        # In the future, `sent` will be a full message, and the client loop
+        # will emit the `MSG_NEW` event with it as the data.
+        # self.notify(Event.MSG_NEW, sent)
+
+        return sent
 
 
 class Teacup:

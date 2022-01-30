@@ -1,8 +1,6 @@
 """The module containing the common types used by the library."""
 
-from __future__ import annotations
-
-from typing import Callable, Union, Any
+from typing import Callable, Union, Any, Dict
 
 import requests
 
@@ -11,12 +9,12 @@ from .dataclasses import Message
 MessageCallback = Callable[[Message], Any]
 
 ErrorCallback = Callable[
-    [requests.Response, str, dict[str, Any]],
+    [requests.Response, str, Dict[str, Any]],
     Any,
 ]
 
 ExceptionCallback = Callable[
-    [Exception, str, dict[str, Any]],
+    [Exception, str, Dict[str, Any]],
     Any,
 ]
 

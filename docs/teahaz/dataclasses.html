@@ -205,6 +205,7 @@
         <span class="sd">&quot;&quot;&quot;Creates a Message from server-data.&quot;&quot;&quot;</span>
 
         <span class="n">data_value</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="n">SystemEvent</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span>
+
         <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;system&quot;</span><span class="p">):</span>
             <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
             <span class="n">data_value</span> <span class="o">=</span> <span class="n">SystemEvent</span><span class="p">(</span><span class="n">data_value</span><span class="p">[</span><span class="s2">&quot;event_type&quot;</span><span class="p">],</span> <span class="n">data_value</span><span class="p">[</span><span class="s2">&quot;user_info&quot;</span><span class="p">])</span>
@@ -660,6 +661,7 @@
         <span class="sd">&quot;&quot;&quot;Creates a Message from server-data.&quot;&quot;&quot;</span>
 
         <span class="n">data_value</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="n">SystemEvent</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span>
+
         <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;system&quot;</span><span class="p">):</span>
             <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
             <span class="n">data_value</span> <span class="o">=</span> <span class="n">SystemEvent</span><span class="p">(</span><span class="n">data_value</span><span class="p">[</span><span class="s2">&quot;event_type&quot;</span><span class="p">],</span> <span class="n">data_value</span><span class="p">[</span><span class="s2">&quot;user_info&quot;</span><span class="p">])</span>
@@ -801,6 +803,7 @@ set when the message type is one of <code>["text", "file"]</code>.</p>
         <span class="sd">&quot;&quot;&quot;Creates a Message from server-data.&quot;&quot;&quot;</span>
 
         <span class="n">data_value</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="n">SystemEvent</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span>
+
         <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;system&quot;</span><span class="p">):</span>
             <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_value</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
             <span class="n">data_value</span> <span class="o">=</span> <span class="n">SystemEvent</span><span class="p">(</span><span class="n">data_value</span><span class="p">[</span><span class="s2">&quot;event_type&quot;</span><span class="p">],</span> <span class="n">data_value</span><span class="p">[</span><span class="s2">&quot;user_info&quot;</span><span class="p">])</span>

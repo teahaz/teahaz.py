@@ -2,15 +2,7 @@ from time import sleep
 from typing import Any
 from requests import Response
 
-from pytermgui import (
-    Container,
-    Prompt,
-    Label,
-    boxes,
-    alt_buffer,
-    define_tag,
-    markup_to_ansi,
-)
+from pytermgui import Container, Label, Splitter, boxes, alt_buffer, markup, terminal
 from teahaz import Teacup, Event, Chatroom, Channel
 
 
@@ -30,23 +22,23 @@ def handle_error(response: Response, method: str, req_kwargs: dict[str, Any]) ->
     }
 
     if colors.get(code) is None:
-        define_tag("code-color", "bold strikethrough 1")
+        markup.alias("code-color", "bold strikethrough 1")
     else:
-        define_tag("code-color", str(colors.get(code)))
+        markup.alias("code-color", str(colors.get(code)))
 
-    root = Container() + Label("[error-title]Error occured!")
-    root += Prompt("[error-method]Method:", "[157 bold]" + method.upper())
-    root += Prompt("[error-code]Code:", f"[code-color]{code}")
-    root += Prompt("[error-message]Message:", '[247 italic]"' + response.json() + '"')
+    root = Container(width=terminal.width) + Label("[error-title]Error occured!")
+    root += {"[error-method]Method:": "[157 bold]" + method.upper()}
+    root += {"[error-code]Code:": f"[code-color]{code}"}
+    root += {"[error-message]Message:": '[247 italic]"' + response.json() + '"'}
 
-    root += Label("[error-data]request_args[/] = {", align=Label.ALIGN_LEFT)
+    root += Label("[error-data]request_args[/] = {", parent_align=0)
     for key, item in req_kwargs.items():
         root += Label(
             f"[247 italic]{key}: [157 bold]{item},",
-            align=Label.ALIGN_LEFT,
+            parent_align=0,
             padding=4,
         )
-    root += Label("}", align=Label.ALIGN_LEFT)
+    root += Label("}", parent_align=0)
 
     root.center()
     with alt_buffer(cursor=False):
@@ -57,20 +49,21 @@ def handle_error(response: Response, method: str, req_kwargs: dict[str, Any]) ->
 def setup() -> None:
     """Setup initial styles & values"""
 
-    define_tag("error-title", "210 italic bold")
-    define_tag("error-code", "72 bold")
-    define_tag("error-data", "72 bold")
-    define_tag("error-method", "72 bold")
-    define_tag("error-message", "72 bold")
+    markup.alias("error-title", "210 italic bold")
+    markup.alias("error-code", "72 bold")
+    markup.alias("error-data", "72 bold")
+    markup.alias("error-method", "72 bold")
+    markup.alias("error-message", "72 bold")
 
-    Prompt.set_char("delimiter", [""] * 2)
+    # Prompt.set_char("delimiter", [""] * 2)
+    Splitter.set_char("separator", "  ")
     boxes.DOUBLE_TOP.set_chars_of(Container)
 
 
 def progress_print(content: str) -> None:
     """Print without end newline, with flush & markup parsing"""
 
-    print(f"{markup_to_ansi(content):<35}", flush=True, end="")
+    print(f"{markup.parse(content):<35}", flush=True, end="")
 
 
 def create_chatroom_test(
@@ -116,18 +109,24 @@ def message_test(chat: Chatroom, count: int = 100) -> None:
 
     chat.subscribe(
         Event.MSG_NEW,
-        lambda msg: rec.append(msg.uid),
+        lambda msg: rec.append((msg.uid, msg.data)),
     )
 
     for i in range(count):
         message = "this is message " + str(i)
-        sent.append(chat.send(message)["messageID"])
+        sent_msg = chat.send(message)
+        sent.append((sent_msg["messageID"], sent_msg["data"]))
 
     # we need to wait until the next loop iteration
     sleep(chat.interval)
 
-    assert sent == rec
-    print("✅")
+    if sent == rec:
+        print("✅")
+        return
+
+    for i, (out, inp) in enumerate(zip(sent, rec)):
+        if not out == inp:
+            print(i, out, inp)
 
 
 def main() -> None:
@@ -139,11 +138,12 @@ def main() -> None:
     cup.subscribe_all(Event.ERROR, handle_error)
 
     chat = create_chatroom_test(
-        cup, "http://localhost:13337", "test-alma", "alma", "1234567890"
+        cup, "https://teahaz.co.uk", "test-alma", "alma", "1234567890"
     )
 
     create_channel_test(chat, "__main__")
-    chat.send("hello world!")
+    # chat.send("hello world!")
+    # chat.get_count(1)
 
     # 100 is the server limit
     message_test(chat, 50)

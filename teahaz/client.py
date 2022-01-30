@@ -1,55 +1,114 @@
-"""
-teahaz.client
-----------------
-author: bczsalba
-
-
-The module containing the main objects for the Teahaz API wrapper
-"""
+"""The module containing the main objects for the Teahaz API wrapper."""
 
 # pylint: disable=too-many-instance-attributes
 
 from __future__ import annotations
 
 from enum import Enum, auto
-from time import sleep, time as epoch
 from threading import Thread
-from dataclasses import dataclass
-from typing import Callable, Any, Union, Optional
+from time import sleep, time as epoch
+from typing import Callable, Any, Union
 
 import requests
+
+from .dataclasses import (
+    User,
+    Invite,
+    Channel,
+    Message,
+)
+
+from .types import EventCallback
 
 __all__ = [
     "Event",
     "Teacup",
     "Chatroom",
-    "Channel",
-    "Message",
 ]
-
-MessageCallback = Callable[["Message", "Chatroom"], Any]
-ErrorCallback = Callable[[requests.Response, str, dict[str, Any]], Any]
-ExceptionCallback = Callable[[Exception, str, dict[str, Any]], Any]
-EventCallback = Union[MessageCallback, ErrorCallback]
 
 
 class Event(Enum):
     """Events that `Chatroom` and `Teacup` can subscribe to"""
 
     ERROR = auto()
+    """An error occured.
+
+    Args:
+        response: The `requests.Response` object.
+        method: The HTTP method used.
+        request_args: A dictionary of arguments sent with the request.
+    """
+
     MSG_NEW = auto()
+    """A new message has arrived.
+
+    Args:
+        message: The new `Message` instance.
+    """
+
     MSG_DEL = auto()
+    """A message was deleted.
+
+    Args:
+        message: The deleted `Message` instance.
+    """
+
     MSG_SYS = auto()
+    """A system message has arrived.
+
+    Args:
+        message: The system message.
+    """
+
     MSG_SENT = auto()
+    """A message has been sent.
+
+    This can be used by clients to show the outgoing message,
+    before the server receives and sends it back.
+
+    Args:
+        message: The **locally instanced** `Message`. Only use this while the real
+            message has not yet arrived.
+    """
+
     USER_JOIN = auto()
+    """A new user has joined the chatroom.
+
+    Note:
+        **Not yet implemented.**
+    """
+
     USER_LEAVE = auto()
+    """A user has left the chatroom.
+
+    Note:
+        **Not yet implemented.**
+    """
+
     SERVER_INFO = auto()
+    """Some server information has changed.
+
+    Note:
+        **Not yet implemented.**
+    """
+
     MSG_SYS_SILENT = auto()
+    """A silent system message has arrived. These should normally not be displayed.
+
+    Note:
+        **Not yet implemented.**
+    """
+
     NETWORK_EXCEPTION = auto()
+    """A network exception has occured.
+
+    Note:
+        **Not yet implemented.**
+    """
 
 
 class EndpointContainer:
-    """Endpoints of the Teahaz API"""
+    """Contains the endpoints of the Teahaz API."""
 
     _items = {
         "base": "{url}/api/v0",
@@ -61,156 +120,68 @@ class EndpointContainer:
         "invites": "{base}/invites/{chatroom_id}",
     }
 
-    def __init__(self, url: str, uid: Optional[str] = None) -> None:
-        """Create object"""
+    def __init__(self, url: str, uid: str | None = None) -> None:
+        """Initializes object.
 
-        self._url = url
-        self._uid = uid
+        Args:
+            url: The URL to use.
+            uid: The chatroom uid to use.
+        """
 
-    def set(self, item: str, value: str) -> None:
-        """Set normally private argument"""
+        self.url = url
+        self.uid = uid
 
-        item = "_" + item
-        if not item in dir(self):
-            raise KeyError(f"Invalid setter key {item}.")
+    def list(self) -> list[str]:
+        """Returns a list of all endpoints."""
 
-        setattr(self, item, value)
+        return [getattr(self, key) for key in self._items]
 
     def __getattr__(self, item: str) -> str:
-        """Get attribute"""
+        """Gets a formatted endpoint.
 
-        # this would recurse
+        Args:
+            item: The endpoint key.
+        """
+
+        # This is a special key
         if item == "base":
-            return self._items["base"].format(url=self._url)
+            return self._items["base"].format(url=self.url)
 
         return self._items[item].format(
-            url=self._url, base=self.base, chatroom_id=self._uid
-        )
-
-
-@dataclass
-class Message:
-    """A dataclass to store messages
-
-    Note: This is only meant to be used internally."""
-
-    uid: str
-    channel_id: str
-    user_id: str
-    key_id: str
-    send_time: float
-    message_type: str
-    data: Union[str, bytes]
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Message:
-        """Create Message from server-data"""
-
-        return cls(
-            uid=data["messageID"],
-            channel_id=data["channelID"],
-            user_id=data["userID"],
-            key_id=data["keyID"],
-            send_time=data["send_time"],
-            message_type=data["type"],
-            data=data["data"],
-        )
-
-
-@dataclass
-class Channel:
-    """A dataclass to store channels
-
-    Note: This is only meant to be used internally."""
-
-    uid: str
-    name: str
-    public: bool
-    # permissions: dict[str, bool]
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Channel:
-        """Create Channel from server-data"""
-
-        return cls(
-            uid=data["channelID"],
-            name=data["channel_name"],
-            public=data["public"],
-            # permissions=data["permissions"],
-        )
-
-
-@dataclass
-class User:
-    """A dataclass to store users
-
-    Note: This is only meant to be used internally."""
-
-    uid: str
-    username: str
-    color: dict[str, int]
-
-    def get_color(self) -> str:
-        """Get user's color as markup tag"""
-
-        return ";".join(str(value) for value in self.color.values())
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> User:
-        """Create User from server-data"""
-
-        return cls(
-            uid=data["userID"],
-            username=data["username"],
-            color=data["color"],
-        )
-
-
-@dataclass
-class Invite:
-    """A dataclass to store invites
-
-    Note: This is only meant to be used internally."""
-
-    url: str
-    uid: str
-    uses: int
-    chatroom_id: str
-    expiration_time: float
-
-    @classmethod
-    def from_dict(cls, data: dict) -> Invite:
-        """Get invite from server-data"""
-
-        return cls(
-            url=data["url"],
-            uses=data["uses"],
-            uid=data["inviteID"],
-            chatroom_id=data["chatroomID"],
-            expiration_time=data["expiration-time"],
+            url=self.url, base=self.base, chatroom_id=self.uid
         )
 
 
 class Chatroom:
-    """TODO"""
+    """The object to deal with all chatroom-related API actions."""
 
     def __init__(
         self,
         url: str,
-        uid: Optional[str] = None,
-        name: Optional[str] = None,
-        session: Optional[requests.Session] = None,
+        uid: str | None = None,
+        name: str | None = None,
+        session: requests.Session | None = None,
     ) -> None:
-        """Initialize object"""
+        """Initializes chatroom.
+
+        Args:
+            url: The chatroom's server URL:PORT.
+            uid: The chatroom's UUID.
+            name: The display name of the chatroom.
+            session: Session that should be used by this chatroom.
+
+        Every argument except URL is optional. This object should usually
+        be instanced within the module, not by outside code.
+        """
 
         self.uid = uid
         self.url = url
         self.name = name
         self.interval = 1
 
-        self.user_id: Optional[str] = None
+        self.username: str | None = None
         self.session = session or requests.Session()
-        self.active_channel: Optional[Channel] = None
+        self.active_channel: Channel | None = None
         self.channels: list[Channel] = []
 
         self.event_thread = Thread(target=self._loop)
@@ -227,11 +198,22 @@ class Chatroom:
         self._is_server_side: bool = False
         self._last_get_time: float = epoch()
 
-    def _request(self, method_name: str, **req_args: Any) -> Optional[Any]:
-        """Handle internal request, deal with error event calling
+    def _request(self, method_name: str, **req_args: Any) -> Any | None:
+        """Sends a request, handles events & exceptions.
 
-        The type: ignore-s are because mypy thinks the methods called
-        will get a self argument, but they won't."""
+        Args:
+            method_name: An HTTP method name, such as GET.
+            **req_args: Arguments passed to the request.
+
+        Returns:
+        - JSON of response if `status_code == 200`
+        - None if exception occured but was handled
+
+        Raises:
+            ValueError: Invalid HTTP method was passed.
+            RuntimeError: Response status_code was not 200, and
+                no handler was available to call.
+        """
 
         method = getattr(self.session, method_name)
         if method is None:
@@ -267,7 +249,12 @@ class Chatroom:
         )
 
     def _notify(self, event: Event, *data: Any) -> None:
-        """Notify listener of event"""
+        """Notifies listeners of an event.
+
+        Args:
+            event: The event to notify for.
+            *data: Any arguments passed to the listeners.
+        """
 
         callback = self._listeners.get(event)
         if callback is None:
@@ -320,21 +307,25 @@ class Chatroom:
             sleep(self.interval)
 
     def _run(self) -> None:
-        """Run monitoring loop"""
+        """Runs monitoring loop"""
 
         self._is_looping = True
         self.event_thread.start()
         self._update_thread_name()
 
     def _initialize_from_response(self, response: dict) -> None:
-        """Initialize data of chatroom from a response dict"""
+        """Initializes data of chatroom from a response dict.
+
+        Args:
+            response: A dictionary of Teahaz server response.
+        """
 
         self.name = response["chatroom_name"]
         self.uid = response["chatroomID"]
-        self.user_id = response["userID"]
+        self.username = response["users"][0]["username"]
 
         assert self.uid is not None
-        self.endpoints.set("uid", self.uid)
+        self.endpoints.uid = self.uid
         self._update_thread_name()
 
         self._update_channels(
@@ -342,10 +333,10 @@ class Chatroom:
         )
         self._is_server_side = True
 
-    def _update_channels(self, channels: Optional[list[Channel]] = None) -> None:
-        """Update channels available to the user"""
+    def _update_channels(self, channels: list[Channel] | None = None) -> None:
+        """Updates channels available to the user."""
 
-        assert self.user_id, "Please log in before getting channels!"
+        assert self.username, "Please log in before getting channels!"
 
         if channels is None:
             channels = self.get_channels()
@@ -360,18 +351,25 @@ class Chatroom:
             self.active_channel = self.channels[0]
 
     def _update_thread_name(self) -> None:
-        """Set self.event_thread.name"""
+        """Sets self.event_thread.name."""
 
         self.event_thread.name = f'Chatroom(uid="{self.uid}")'
 
     def _get_messages(
         self,
         method: str,
-        channel: Optional[Channel] = None,
-        count: Optional[str] = None,
-        time: Optional[str] = None,
-    ) -> Optional[list[Message]]:
-        """Get messages by time (since) or count"""
+        channel: Channel | None = None,
+        count: str | None = None,
+        time: str | None = None,
+    ) -> list[Message] | None:
+        """Gets messages by time (since) or count.
+
+        Args:
+            method: `time` or `count`.
+            channel: The channel to get messages from.
+            count: How many messages to get. Only used when `method=="count"`.
+            time: The time to get messages since.
+        """
 
         if channel is not None:
             self.active_channel = channel
@@ -387,13 +385,13 @@ class Chatroom:
 
         headers = {
             "get-method": method,
-            "userID": self.user_id,
+            "username": self.username,
             "channelID": channel.uid,
             "count": count,
             "time": time,
         }
 
-        messages = self._request(
+        messages: list[dict[str, Any]] | None = self._request(
             "get",
             url=self.endpoints.messages,
             headers=headers,
@@ -406,7 +404,12 @@ class Chatroom:
         return [Message.from_dict(message) for message in messages]
 
     def subscribe(self, event: Event, callback: EventCallback) -> None:
-        """Listen for event and run callback"""
+        """Start listening for and event and run callback when it occurs.
+
+        Sideeffect:
+            This method will call `self._run()` if the event passed is not an
+            Error or NetworkException.
+        """
 
         self._listeners[event] = callback
 
@@ -414,15 +417,23 @@ class Chatroom:
             self._run()
 
     def stop(self) -> None:
-        """Stop event loop"""
+        """Stops event loop."""
 
         self._is_stopped = True
 
-    def create(self, username: str, password: str) -> Optional[Chatroom]:
-        """Create chatroom on the server"""
+    def create(self, username: str, password: str) -> Chatroom | None:
+        """Creates a new chatroom on the server.
+
+        Args:
+            username: The owner account's username.
+            password: The owner account's password.
+
+        Returns:
+            This chatroom, logged into the given owner account.
+        """
 
         data = {
-            "chatroom_name": self.name,
+            "chatroom-name": self.name,
             "username": username,
             "password": password,
         }
@@ -441,12 +452,20 @@ class Chatroom:
         self._initialize_from_response(response)
         return self
 
-    def create_channel(self, name: str) -> Optional[Channel]:
-        """Create a channel"""
+    def create_channel(self, name: str) -> Channel | None:
+        """Creates a channel.
+
+        Args:
+            name: The display name for the new channel.
+
+        Returns:
+            The new channel object in case of success, None otherwise.
+        """
 
         data = {
-            "userID": self.user_id,
-            "channel_name": name,
+            "username": self.username,
+            "channel-name": name,
+            "permissions": [{"classID": "1", "r": True, "w": True, "x": False}],
         }
 
         response = self._request("post", url=self.endpoints.channels, json=data)
@@ -461,12 +480,21 @@ class Chatroom:
         return channel
 
     def create_invite(
-        self, uses: int = 1, expiration_time: Optional[float] = None
-    ) -> Optional[Invite]:
-        """Create an invite to the chatroom"""
+        self, uses: int = 1, expiration_time: float | None = None
+    ) -> Invite | None:
+        """Creates an invite to this chatroom.
+
+        Args:
+            uses: How many times this invite can be used.
+            expiration_time: Epoch float describing when the invite will no
+                longer be valid.
+
+        Returns:
+            Invite object in case of success, None otherwise.
+        """
 
         headers = {
-            "userID": self.user_id,
+            "username": self.username,
         }
 
         if uses is not None:
@@ -486,8 +514,17 @@ class Chatroom:
 
     def create_from_invite(
         self, invite: Invite, username: str, password: str
-    ) -> Optional[Chatroom]:
-        """Initialize chatroom from an invite"""
+    ) -> Chatroom | None:
+        """Initializes chatroom from an invite.
+
+        Args:
+            invite: The invite object to use.
+            username: The username of the account registered using this invite.
+            password: The password of the account registered using this invite.
+
+        Returns:
+            This chatroom instance logged into the user on success, None otherwise.
+        """
 
         data = {
             "inviteID": invite.uid,
@@ -504,12 +541,16 @@ class Chatroom:
 
         return self
 
-    def get_users(self) -> Optional[list[User]]:
-        """Get all users in a chatroom"""
+    def get_users(self) -> list[User] | None:
+        """Gets all users in a chatroom.
+
+        Returns:
+            A list of User instances on success, None otherwise.
+        """
 
         users = self._request(
             "get",
-            data={"userID": self.uid},
+            data={"username": self.uid},
         )
 
         if users is None:
@@ -518,13 +559,17 @@ class Chatroom:
 
         return [User.from_dict(user) for user in users]
 
-    def get_channels(self) -> Optional[list[Channel]]:
-        """Get all channels the logged-in user has access to"""
+    def get_channels(self) -> list[Channel] | None:
+        """Gets all channels the logged-in user has access to.
+
+        Returns:
+            A list of Channel instances on success, None otherwise.
+        """
 
         channels = self._request(
             "get",
             url=self.endpoints.channels,
-            headers={"userID": self.user_id},
+            headers={"username": self.username},
         )
 
         if channels is None:
@@ -533,13 +578,19 @@ class Chatroom:
 
         return [Channel.from_dict(channel) for channel in channels]
 
-    def login(self, user_id: str, password: str) -> Optional[Any]:
-        """Log into the chatroom with given credentials
+    def login(self, username: str, password: str) -> requests.Response | None:
+        """Logs into the chatroom with given credentials.
 
-        Temporary: user_id will be replaced with username"""
+        Args:
+            username: Username to log into.
+            password: Password to log in with.
+
+        Returns:
+            Raw response for some reason.
+        """
 
         data = {
-            "userID": user_id,
+            "username": username,
             "password": password,
         }
 
@@ -549,19 +600,27 @@ class Chatroom:
             json=data,
         )
 
-        self.user_id = user_id
+        if response is None:
+            return None
+
+        self.username = username
         self._update_channels()
         self._is_server_side = True
 
         return response
 
     def get_since(
-        self, since: float, channel: Optional[Channel] = None
-    ) -> Optional[list[Message]]:
-        """Get messages since epoch timestamp
+        self, since: float, channel: Channel | None = None
+    ) -> list[Message] | None:
+        """Gets messages since provided timestamp.
 
-        Note: This method is limited to getting 100 messages at a time,
-        and should NOT be used for anything that can overload that."""
+        Args:
+            since: UNIX epoch timestamp from which to get messages.
+            channel: The optional channel to filter messages by.
+
+        Returns:
+            A list of messages on success, None otherwise.
+        """
 
         return self._get_messages(
             "since",
@@ -570,9 +629,17 @@ class Chatroom:
         )
 
     def get_count(
-        self, count: int, channel: Optional[Channel] = None
-    ) -> Optional[list[Message]]:
-        """Get `count` messages timestamp"""
+        self, count: int, channel: Channel | None = None
+    ) -> list[Message] | None:
+        """Gets a certain count of messages sent since provided timestamp.
+
+        Args:
+            count: The maximum amount of messages returned.
+            channel: The channel to filter messages by.
+
+        Returns:
+            A list of messages on success, None otherwise.
+        """
 
         return self._get_messages(
             "count",
@@ -583,13 +650,25 @@ class Chatroom:
     def send(
         self,
         content: Union[str, bytes],
-        channel: Optional[Channel] = None,
-        reply_id: Optional[str] = None,
-    ) -> Optional[Any]:
-        """Send a message
+        channel: Channel | None = None,
+        reply_id: str | None = None,
+    ) -> None:
+        """Sends a message.
 
-        The message type is detected automatically, so sending files & text
-        is done through the same method."""
+        Args:
+            content: Message data. Currently only `str` is supported.
+            channel: The channel to send the message on. Defaults to self.active_channel.
+            reply_id: The optional id of the messages this one will reply to.
+
+        Returns:
+            None. The outgoing message can be acquired by subscribing to `Event.MSG_SENT`.
+
+        Raises:
+            ValueError: No channel was passed, and self.active_channel is None.
+
+        Sideeffect:
+            This changes self.active_channel to the provided one, if it isn't None.
+        """
 
         msg = {}
         if channel is not None:
@@ -597,7 +676,7 @@ class Chatroom:
 
         elif self.active_channel is None:
             raise ValueError(
-                "Please use either the Chatroom.set_channel() function"
+                "No active channel set. Please use either the Chatroom.set_channel() function"
                 + " or provide `channel` as a non-null value!"
             )
 
@@ -607,7 +686,7 @@ class Chatroom:
             endpoint = self.endpoints.messages
 
         msg = {
-            "userID": self.user_id,
+            "username": self.username,
             "channelID": self.active_channel.uid,
             "replyID": reply_id,
             "data": content,
@@ -619,29 +698,50 @@ class Chatroom:
             json=msg,
         )
 
-        # In the future, `sent` will be a full message, and the client loop
-        # will emit the `MSG_NEW` event with it as the data.
-        # self.notify(Event.MSG_NEW, sent)
-
-        return sent
+        if sent is not None:
+            self._notify(Event.MSG_SENT, Message.from_dict(sent))
 
 
 class Teacup:
-    """TODO"""
+    """The object to manage all API related actions.
+
+    This class itself doesn't actually do any networking, rather it creates
+    objects (`Chatroom`-s) that do all the dirty work.
+
+    Standard flow of using a Teacup:
+
+    ```python3
+    from teahaz import Teacup
+
+    cup = Teacup()
+    chatroom = cup.login("username", "password", "chatroom-uuid", "url")
+    chatroom.send("hello world!")
+    ```
+    """
 
     def __init__(self) -> None:
-        """Initialize object"""
+        """Initializes Teacup."""
 
         self.chatrooms: list[Chatroom] = []
         self._global_listeners: dict[Event, EventCallback] = {}
 
     def get_threads(self) -> list[str]:
-        """Get names of all chatroom threads"""
+        """Gets names of all chatroom threads."""
 
         return [chatroom.event_thread.name for chatroom in self.chatrooms]
 
-    def login(self, username: str, password: str, chatroom: str, url: str) -> Chatroom:
-        """Create a logged-in chatroom instance"""
+    def login(self, url: str, chatroom: str, username: str, password: str) -> Chatroom:
+        """Creates a logged-in chatroom instance.
+
+        Args:
+            url: The server URL:PORT.
+            chatroom: The UUID of the chatroom.
+            username: Login username for chatroom.
+            password: Login password for chatroom.
+
+        Returns:
+            A chatroom instance with given user logged in.
+        """
 
         chat = Chatroom(url=url, uid=chatroom)
 
@@ -654,13 +754,17 @@ class Teacup:
         return chat
 
     def stop(self) -> None:
-        """Stop all chatroom threads"""
+        """Stops all chatroom threads."""
 
         for chatroom in self.chatrooms:
             chatroom.stop()
 
-    def get_chatroom(self, name: str) -> Optional[Chatroom]:
-        """Get first chatroom by matching name"""
+    def get_chatroom(self, name: str) -> Chatroom | None:
+        """Gets first chatroom by matching name.
+
+        Args:
+            name: The chatroom display name to search for.
+        """
 
         for chatroom in self.chatrooms:
             if chatroom.name == name:
@@ -670,8 +774,21 @@ class Teacup:
 
     def create_chatroom(
         self, url: str, name: str, username: str, password: str
-    ) -> Optional[Chatroom]:
-        """Create a new chatroom with given user as its owner, return a logged-in instance"""
+    ) -> Chatroom | None:
+        """Creates a new chatroom.
+
+        The given user will be the owner of the chatroom.
+
+        Args:
+            url: The server URL:PORT.
+            name: The display name for the new chatroom.
+            username: The login username.
+            password: The login password.
+
+        Returns:
+            Either the logged-in chatroom, or None if its creation was
+            unsuccessful **and** the error raised was captured.
+        """
 
         chat = Chatroom(url=url, name=name)
 
@@ -688,8 +805,18 @@ class Teacup:
 
     def use_invite(
         self, invite: Invite, username: str, password: str
-    ) -> Optional[Chatroom]:
-        """Use invite to get a chatroom"""
+    ) -> Chatroom | None:
+        """Creates a chatroom instance from an invite.
+
+        Args:
+            invite: Invite instance.
+            username: Username for new chatroom user.
+            password: Password for new chatroom user.
+
+        Returns:
+            Logged-in chatroom, or None when creation failed but error
+            was captured.
+        """
 
         chat = Chatroom(url=invite.url, uid=invite.chatroom_id)
         if chat.create_from_invite(invite, username, password) is None:
@@ -700,7 +827,12 @@ class Teacup:
         return chat
 
     def subscribe_all(self, event: Event, callback: EventCallback) -> None:
-        """Subscribe callback to event in all (current & future) Chatrooms"""
+        """Subscribes callback to event in all (current & future) Chatrooms.
+
+        Args:
+            event: The event to subscribe to.
+            callback: The callback that shall be called.
+        """
 
         for chatroom in self.chatrooms:
             chatroom.subscribe(event, callback)
@@ -708,33 +840,28 @@ class Teacup:
         self._global_listeners[event] = callback
 
     @staticmethod
-    def thread(
-        target: Callable[..., Any],
-        callback: Callable[..., Any],
-        target_args: Optional[tuple[Any, ...]] = None,
-        target_kwargs: Optional[dict[str, Any]] = None,
-    ) -> None:
-        """Run target(*target_args, **target_kwargs) in a thread, call callback with its result
+    def threaded(
+        target: Callable[..., Any], callback: Callable[..., Any] | None = None
+    ) -> Callable[..., None]:
+        """Returns a threaded callable for target.
 
-        Note: the signature of the callback function depends on the thread's target."""
+        Args:
+            target: The callable to thread.
+            callback: The callable that will be called with return value
+                of `target`.
 
-        args: tuple[Any, ...]
-        kwargs: dict[str, Any]
+        Returns:
+            A lambda function that runs `target` in a thread, passing its
+            return value to `callback`.
+        """
 
-        if target_args is None:
-            args = ()
-        else:
-            args = target_args
+        def _call_target(*args, **kwargs) -> None:
+            """Calls the target."""
 
-        if target_kwargs is None:
-            kwargs = {}
-        else:
-            kwargs = {}
+            returned = target(*args, **kwargs)
+            if callback is not None:
+                callback(returned)
 
-        def _inner() -> None:
-            """The wrapper that calls target & callback"""
-
-            callback(target(*args, **kwargs))
-
-        runner = Thread(target=_inner)
-        runner.start()
+        return lambda *args, **kwargs: Thread(
+            target=_call_target, args=args, kwargs=kwargs
+        ).start()

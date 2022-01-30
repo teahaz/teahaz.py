@@ -1,10 +1,9 @@
 name: Pylint
 
-on:
   workflow_dispatch:
   push:
     paths:
-      - 'teahaz/**'
+      - "teahaz/**"
 
 jobs:
   build:
@@ -26,4 +25,3 @@ jobs:
     - name: Analysing the code with pylint
       run: |
         pylint --fail-under 9.9 -d fixme $(git ls-files '*.py' | grep '^teahaz/')
-

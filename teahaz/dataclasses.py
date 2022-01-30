@@ -65,6 +65,7 @@ class Message:
         """Creates a Message from server-data."""
 
         data_value: dict[str, Any] | SystemEvent = data["data"]
+
         if data["type"].startswith("system"):
             assert isinstance(data_value, dict)
             data_value = SystemEvent(data_value["event_type"], data_value["user_info"])

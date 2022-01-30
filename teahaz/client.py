@@ -7,6 +7,7 @@ from __future__ import annotations
 from enum import Enum, auto
 from threading import Thread
 from time import sleep, time as epoch
+from base64 import b64encode, b64decode
 from typing import Callable, Any, Union
 
 import requests
@@ -401,7 +402,48 @@ class Chatroom:
             # Getting messages failed, but error was captured
             return None
 
-        return [Message.from_dict(message) for message in messages]
+        instances = []
+        for message in messages:
+            if not message["type"].startswith("system"):
+                message["data"] = self._decrypt(message["data"])
+
+            instances.append(Message.from_dict(message))
+
+        return instances
+
+    @staticmethod
+    def _encrypt(message: bytes) -> str:
+        """Encrypts the given message.
+
+        Note:
+            As encryption is currently not supported by the server, all this function does
+            is b64encode the given string.
+
+        Args:
+            message: Text to encrypt.
+
+        Returns:
+            The encrypted text.
+        """
+
+        return b64encode(message).decode("ascii")
+
+    @staticmethod
+    def _decrypt(message: bytes) -> str:
+        """Decrypts the given message.
+
+        Note:
+            As encryption is currently not supported by the server, all this function does
+            is b64decode the given string.
+
+        Args:
+            message: Text to decrypt.
+
+        Returns:
+            The decrypted text.
+        """
+
+        return b64decode(message).decode("ascii")
 
     def subscribe(self, event: Event, callback: EventCallback) -> None:
         """Start listening for and event and run callback when it occurs.
@@ -685,11 +727,14 @@ class Chatroom:
         else:
             endpoint = self.endpoints.messages
 
+        if isinstance(content, str):
+            content = content.encode("ascii")
+
         msg = {
             "username": self.username,
             "channelID": self.active_channel.uid,
             "replyID": reply_id,
-            "data": content,
+            "data": self._encrypt(content),
         }
 
         sent = self._request(
@@ -699,6 +744,7 @@ class Chatroom:
         )
 
         if sent is not None:
+            sent["data"] = content.decode("ascii")
             self._notify(Event.MSG_SENT, Message.from_dict(sent))
 
 

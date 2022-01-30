@@ -1,6 +1,9 @@
 name: Pylint
 
-on: [push]
+on: 
+  push:
+    paths:
+      - 'teahaz/**'
 
 jobs:
   build:
@@ -20,4 +23,5 @@ jobs:
         pip install pylint
     - name: Analysing the code with pylint
       run: |
-        pylint $(git ls-files '*.py' | grep 'pytermgui/')
+        pylint --fail-under 9.9 -d fixme $(git ls-files '*.py' | grep '^pytermgui/')
+

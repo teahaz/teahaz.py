@@ -25,7 +25,7 @@ jobs:
 
       - name: Generate documentation
         run: |
-          pdoc -o ./docs pytermgui --docformat google
+          pdoc -o ./docs teahaz --docformat google
 
       - name: Commit changes
         run: |

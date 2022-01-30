@@ -1,8 +1,8 @@
 teahaz.py
 =========
 
-[![PyPI version](https://badge.fury.io/py/teahaz.py.svg)](https://badge.fury.io/py/teahaz.py)
-[![Pylint quality](assets/quality.svg)](https://github.com/bczsalba/pytermgui/blob/master/utils/create_badge.py)
+[![PyPI version](https://img.shields.io/pypi/v/teahaz.py?color=brightgreen)](https://pypi.org/project/teahaz.py/)
+[![Pylint](https://github.com/teahaz/teahaz.py/actions/workflows/pylint.yml/badge.svg?branch=master)](https://github.com/teahaz/teahaz.py/actions/workflows/pylint.yml)
 
 ## My ad-hoc checklist/API documentation
 Note: All endpoint URLs should be used in the form: `http(s)://<server_url>/<endpoint>`

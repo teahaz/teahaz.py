@@ -1,12 +1,13 @@
 from setuptools import setup, find_packages
+from teahaz import __version__
 
 setup(
     name="teahaz.py",
-    version="0.0.4",
+    version=__version__,
     packages=["teahaz"],
     license="MIT",
-    description="The official API wrapper for the teahaz server",
-    long_description="TBA",
+    description="The official Python API wrapper for the Teaház protocol.",
+    long_description="Not yet available.",
     install_requires=["requests", "cryptography"],
     url="https://github.com/bczsalba/teahaz.py",
     author="BcZsalba",

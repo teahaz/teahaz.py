@@ -6,3 +6,5 @@ on the left to find what you need."""
 from .types import *
 from .client import *
 from .dataclasses import *
+
+__version__ = "0.1.0"

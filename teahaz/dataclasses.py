@@ -147,7 +147,7 @@ class Invite:
         return cls(
             url=data["url"],
             uses=data["uses"],
-            uid=data["inviteID"],
-            chatroom_id=data["chatroomID"],
-            expiration_time=data["expiration-time"],
+            uid=data["uid"],
+            chatroom_id=data["chatroom_id"],
+            expiration_time=data["expiration_time"],
         )

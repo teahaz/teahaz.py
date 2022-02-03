@@ -73,6 +73,12 @@
                                 <a class="function" href="#Teacup.__init__">Teacup</a>
                         </li>
                         <li>
+                                <a class="function" href="#Teacup.from_dump">from_dump</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#Teacup.dump_to">dump_to</a>
+                        </li>
+                        <li>
                                 <a class="function" href="#Teacup.get_threads">get_threads</a>
                         </li>
                         <li>
@@ -104,6 +110,9 @@
                             <ul class="memberlist">
                         <li>
                                 <a class="function" href="#Chatroom.__init__">Chatroom</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#Chatroom.initialize_from_response">initialize_from_response</a>
                         </li>
                         <li>
                                 <a class="function" href="#Chatroom.subscribe">subscribe</a>
@@ -167,12 +176,18 @@
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span><span class="sd">&quot;&quot;&quot;The module containing the main objects for the Teahaz API wrapper.&quot;&quot;&quot;</span>
 
-<span class="c1"># pylint: disable=too-many-instance-attributes</span>
+<span class="c1"># pylint: disable=too-many-instance-attributes, too-many-lines</span>
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">auto</span>
 <span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Thread</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">asdict</span>
 <span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">sleep</span><span class="p">,</span> <span class="n">time</span> <span class="k">as</span> <span class="n">epoch</span>
 <span class="kn">from</span> <span class="nn">base64</span> <span class="kn">import</span> <span class="n">b64encode</span><span class="p">,</span> <span class="n">b64decode</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Union</span>
@@ -286,6 +301,7 @@
         <span class="s2">&quot;messages&quot;</span><span class="p">:</span> <span class="s2">&quot;</span><span class="si">{base}</span><span class="s2">/messages/</span><span class="si">{chatroom_id}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="s2">&quot;</span><span class="si">{base}</span><span class="s2">/channels/</span><span class="si">{chatroom_id}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="s2">&quot;invites&quot;</span><span class="p">:</span> <span class="s2">&quot;</span><span class="si">{base}</span><span class="s2">/invites/</span><span class="si">{chatroom_id}</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;users&quot;</span><span class="p">:</span> <span class="s2">&quot;</span><span class="si">{base}</span><span class="s2">/users/</span><span class="si">{chatroom_id}</span><span class="s2">&quot;</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">uid</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -481,26 +497,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">event_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_update_thread_name</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_initialize_from_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Initializes data of chatroom from a response dict.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            response: A dictionary of Teahaz server response.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroom_name&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroomID&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;users&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;username&quot;</span><span class="p">]</span>
-
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">endpoints</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update_thread_name</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update_channels</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">Channel</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]]</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_is_server_side</span> <span class="o">=</span> <span class="kc">True</span>
-
     <span class="k">def</span> <span class="nf">_update_channels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Channel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Updates channels available to the user.&quot;&quot;&quot;</span>
 
@@ -612,6 +608,26 @@
 
         <span class="k">return</span> <span class="n">b64decode</span><span class="p">(</span><span class="n">message</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">initialize_from_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initializes data of chatroom from a response dict.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            response: A dictionary of Teahaz server response.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroom_name&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroomID&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;users&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;username&quot;</span><span class="p">]</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">endpoints</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_thread_name</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_channels</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">Channel</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_server_side</span> <span class="o">=</span> <span class="kc">True</span>
+
     <span class="k">def</span> <span class="nf">subscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">Event</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">EventCallback</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Start listening for and event and run callback when it occurs.</span>
 
@@ -658,7 +674,7 @@
             <span class="c1"># Creation did not succeed, but error was captured</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span>
 
     <span class="k">def</span> <span class="nf">create_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Channel</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -746,7 +762,7 @@
         <span class="k">if</span> <span class="n">response</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span>
 
@@ -759,7 +775,8 @@
 
         <span class="n">users</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span>
             <span class="s2">&quot;get&quot;</span><span class="p">,</span>
-            <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span><span class="p">},</span>
+            <span class="n">url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoints</span><span class="o">.</span><span class="n">users</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">username</span><span class="p">},</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">users</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -861,7 +878,7 @@
         <span class="n">content</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">],</span>
         <span class="n">channel</span><span class="p">:</span> <span class="n">Channel</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">reply_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Message</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Sends a message.</span>
 
 <span class="sd">        Args:</span>
@@ -912,7 +929,12 @@
 
         <span class="k">if</span> <span class="n">sent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">sent</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_notify</span><span class="p">(</span><span class="n">Event</span><span class="o">.</span><span class="n">MSG_SENT</span><span class="p">,</span> <span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">sent</span><span class="p">))</span>
+            <span class="n">message_out</span> <span class="o">=</span> <span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">sent</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_notify</span><span class="p">(</span><span class="n">Event</span><span class="o">.</span><span class="n">MSG_SENT</span><span class="p">,</span> <span class="n">message_out</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">message_out</span>
+
+        <span class="k">return</span> <span class="kc">None</span>
 
 
 <span class="k">class</span> <span class="nc">Teacup</span><span class="p">:</span>
@@ -937,6 +959,125 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">chatrooms</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Chatroom</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_global_listeners</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Event</span><span class="p">,</span> <span class="n">EventCallback</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dump</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">save_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Teacup</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Restore a dump.&quot;&quot;&quot;</span>
+
+        <span class="n">cup</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">directory</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">save_root</span><span class="p">):</span>
+            <span class="n">dirpath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_root</span><span class="p">)</span> <span class="o">/</span> <span class="n">directory</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dirpath</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                <span class="k">continue</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;data.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">datafile</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">datafile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
+                <span class="n">messages</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">messagefile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+                <span class="n">session</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">picklefile</span><span class="p">)</span>
+
+            <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">],</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]:</span>
+                <span class="n">channel</span><span class="p">[</span><span class="s2">&quot;channelID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel</span><span class="p">[</span><span class="s2">&quot;uid&quot;</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">:</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;messageID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;uid&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;send_time&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;message_type&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;channelID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;channel_id&quot;</span><span class="p">]</span>
+
+            <span class="n">chat</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span><span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">]</span>
+            <span class="n">chat</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+            <span class="n">cup</span><span class="o">.</span><span class="n">chatrooms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chat</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cup</span>
+
+    <span class="k">def</span> <span class="nf">dump_to</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">save_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">remove_old</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">max_msg_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Dumps all chatrooms to the given save_root.</span>
+
+<span class="sd">        Each dump will have the following structure:</span>
+<span class="sd">        ```</span>
+<span class="sd">        save_root</span>
+<span class="sd">        |_ &lt;chat_id1&gt;</span>
+<span class="sd">        |   |_ data.json</span>
+<span class="sd">        |   |   |_ chatroomID: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ url: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ chatroom_name: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ users: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ channels: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ users: &lt;value&gt;</span>
+<span class="sd">        |   |</span>
+<span class="sd">        |   |_ messages.json</span>
+<span class="sd">        |   |   |_ &lt;list of chatroom.messages&gt;</span>
+<span class="sd">        |   |</span>
+<span class="sd">        |   |_ session.pickle</span>
+<span class="sd">        |       |_ &lt;picklefile of chatroom.session&gt;</span>
+<span class="sd">        |</span>
+<span class="sd">        |_ &lt;chat_id2&gt;</span>
+<span class="sd">            |_ ...</span>
+<span class="sd">        ```</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            save_root: The root directory to save to.</span>
+<span class="sd">            remove_old: If set, the previous content of the root directory</span>
+<span class="sd">                will be wiped before dumping.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">save_root</span><span class="p">,</span> <span class="n">Path</span><span class="p">):</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">save_root</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_root</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">remove_old</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+                    <span class="k">continue</span>
+
+                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">path</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">chatroom</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chatrooms</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+            <span class="n">datapath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;data.json&quot;</span>
+            <span class="n">messagepath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span>
+            <span class="n">picklepath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">datafile</span><span class="p">:</span>
+                <span class="c1"># TODO: Change this once there is proper support for users</span>
+                <span class="n">users</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">username</span><span class="p">}]</span>
+
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;chatroomID&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">,</span>
+                        <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+                        <span class="s2">&quot;chatroom_name&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                        <span class="s2">&quot;users&quot;</span><span class="p">:</span> <span class="n">users</span><span class="p">,</span>
+                        <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">asdict</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">channels</span><span class="p">],</span>
+                    <span class="p">},</span>
+                    <span class="n">datafile</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">messagepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">max_msg_count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">[:</span><span class="n">max_msg_count</span><span class="p">]</span>
+
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">([</span><span class="n">asdict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">],</span> <span class="n">messagefile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">chatroom</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">picklefile</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_threads</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Gets names of all chatroom threads.&quot;&quot;&quot;</span>
@@ -1032,6 +1173,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">invite</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">uid</span><span class="o">=</span><span class="n">invite</span><span class="o">.</span><span class="n">chatroom_id</span><span class="p">)</span>
+
+        <span class="c1"># Subscribe chatroom to all global events we are subscribed to</span>
+        <span class="k">for</span> <span class="n">event</span><span class="p">,</span> <span class="n">callback</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_listeners</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">chat</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">callback</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">chat</span><span class="o">.</span><span class="n">create_from_invite</span><span class="p">(</span><span class="n">invite</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Creation failed, but error was captured</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -1401,6 +1547,125 @@ message has not yet arrived.</li>
         <span class="bp">self</span><span class="o">.</span><span class="n">chatrooms</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Chatroom</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_global_listeners</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Event</span><span class="p">,</span> <span class="n">EventCallback</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dump</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">save_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Teacup</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Restore a dump.&quot;&quot;&quot;</span>
+
+        <span class="n">cup</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">directory</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">save_root</span><span class="p">):</span>
+            <span class="n">dirpath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_root</span><span class="p">)</span> <span class="o">/</span> <span class="n">directory</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dirpath</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                <span class="k">continue</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;data.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">datafile</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">datafile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
+                <span class="n">messages</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">messagefile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+                <span class="n">session</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">picklefile</span><span class="p">)</span>
+
+            <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">],</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]:</span>
+                <span class="n">channel</span><span class="p">[</span><span class="s2">&quot;channelID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel</span><span class="p">[</span><span class="s2">&quot;uid&quot;</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">:</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;messageID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;uid&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;send_time&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;message_type&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;channelID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;channel_id&quot;</span><span class="p">]</span>
+
+            <span class="n">chat</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span><span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">]</span>
+            <span class="n">chat</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+            <span class="n">cup</span><span class="o">.</span><span class="n">chatrooms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chat</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cup</span>
+
+    <span class="k">def</span> <span class="nf">dump_to</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">save_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">remove_old</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">max_msg_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Dumps all chatrooms to the given save_root.</span>
+
+<span class="sd">        Each dump will have the following structure:</span>
+<span class="sd">        ```</span>
+<span class="sd">        save_root</span>
+<span class="sd">        |_ &lt;chat_id1&gt;</span>
+<span class="sd">        |   |_ data.json</span>
+<span class="sd">        |   |   |_ chatroomID: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ url: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ chatroom_name: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ users: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ channels: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ users: &lt;value&gt;</span>
+<span class="sd">        |   |</span>
+<span class="sd">        |   |_ messages.json</span>
+<span class="sd">        |   |   |_ &lt;list of chatroom.messages&gt;</span>
+<span class="sd">        |   |</span>
+<span class="sd">        |   |_ session.pickle</span>
+<span class="sd">        |       |_ &lt;picklefile of chatroom.session&gt;</span>
+<span class="sd">        |</span>
+<span class="sd">        |_ &lt;chat_id2&gt;</span>
+<span class="sd">            |_ ...</span>
+<span class="sd">        ```</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            save_root: The root directory to save to.</span>
+<span class="sd">            remove_old: If set, the previous content of the root directory</span>
+<span class="sd">                will be wiped before dumping.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">save_root</span><span class="p">,</span> <span class="n">Path</span><span class="p">):</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">save_root</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_root</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">remove_old</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+                    <span class="k">continue</span>
+
+                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">path</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">chatroom</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chatrooms</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+            <span class="n">datapath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;data.json&quot;</span>
+            <span class="n">messagepath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span>
+            <span class="n">picklepath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">datafile</span><span class="p">:</span>
+                <span class="c1"># TODO: Change this once there is proper support for users</span>
+                <span class="n">users</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">username</span><span class="p">}]</span>
+
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;chatroomID&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">,</span>
+                        <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+                        <span class="s2">&quot;chatroom_name&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                        <span class="s2">&quot;users&quot;</span><span class="p">:</span> <span class="n">users</span><span class="p">,</span>
+                        <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">asdict</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">channels</span><span class="p">],</span>
+                    <span class="p">},</span>
+                    <span class="n">datafile</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">messagepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">max_msg_count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">[:</span><span class="n">max_msg_count</span><span class="p">]</span>
+
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">([</span><span class="n">asdict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">],</span> <span class="n">messagefile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">chatroom</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">picklefile</span><span class="p">)</span>
+
     <span class="k">def</span> <span class="nf">get_threads</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="sd">&quot;&quot;&quot;Gets names of all chatroom threads.&quot;&quot;&quot;</span>
 
@@ -1495,6 +1760,11 @@ message has not yet arrived.</li>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">invite</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">uid</span><span class="o">=</span><span class="n">invite</span><span class="o">.</span><span class="n">chatroom_id</span><span class="p">)</span>
+
+        <span class="c1"># Subscribe chatroom to all global events we are subscribed to</span>
+        <span class="k">for</span> <span class="n">event</span><span class="p">,</span> <span class="n">callback</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_listeners</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">chat</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">callback</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">chat</span><span class="o">.</span><span class="n">create_from_invite</span><span class="p">(</span><span class="n">invite</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Creation failed, but error was captured</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -1580,6 +1850,196 @@ objects (<code><a href="#Chatroom">Chatroom</a></code>-s) that do all the dirty 
         </details>
 
             <div class="docstring"><p>Initializes Teacup.</p>
+</div>
+
+
+                            </div>
+                            <div id="Teacup.from_dump" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Teacup.from_dump">#&nbsp;&nbsp</a>
+
+                <div class="decorator">@classmethod</div>
+
+            <span class="def">def</span>
+            <span class="name">from_dump</span><span class="signature">(cls, save_root: str | pathlib.Path) -&gt; <a href="#Teacup">teahaz.client.Teacup</a></span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_dump</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">save_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Teacup</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Restore a dump.&quot;&quot;&quot;</span>
+
+        <span class="n">cup</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">directory</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">save_root</span><span class="p">):</span>
+            <span class="n">dirpath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_root</span><span class="p">)</span> <span class="o">/</span> <span class="n">directory</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dirpath</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                <span class="k">continue</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;data.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">datafile</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">datafile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
+                <span class="n">messages</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">messagefile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+                <span class="n">session</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">picklefile</span><span class="p">)</span>
+
+            <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">],</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]:</span>
+                <span class="n">channel</span><span class="p">[</span><span class="s2">&quot;channelID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel</span><span class="p">[</span><span class="s2">&quot;uid&quot;</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">:</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;messageID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;uid&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;send_time&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;message_type&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">[</span><span class="s2">&quot;channelID&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">message</span><span class="p">[</span><span class="s2">&quot;channel_id&quot;</span><span class="p">]</span>
+
+            <span class="n">chat</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span><span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">]</span>
+            <span class="n">chat</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+            <span class="n">cup</span><span class="o">.</span><span class="n">chatrooms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chat</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cup</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>Restore a dump.</p>
+</div>
+
+
+                            </div>
+                            <div id="Teacup.dump_to" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Teacup.dump_to">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">dump_to</span><span class="signature">(
+    self,
+    save_root: str | pathlib.Path,
+    remove_old: bool = True,
+    max_msg_count: int | None = None
+) -&gt; None</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">dump_to</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">save_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">remove_old</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">max_msg_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Dumps all chatrooms to the given save_root.</span>
+
+<span class="sd">        Each dump will have the following structure:</span>
+<span class="sd">        ```</span>
+<span class="sd">        save_root</span>
+<span class="sd">        |_ &lt;chat_id1&gt;</span>
+<span class="sd">        |   |_ data.json</span>
+<span class="sd">        |   |   |_ chatroomID: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ url: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ chatroom_name: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ users: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ channels: &lt;value&gt;</span>
+<span class="sd">        |   |   |_ users: &lt;value&gt;</span>
+<span class="sd">        |   |</span>
+<span class="sd">        |   |_ messages.json</span>
+<span class="sd">        |   |   |_ &lt;list of chatroom.messages&gt;</span>
+<span class="sd">        |   |</span>
+<span class="sd">        |   |_ session.pickle</span>
+<span class="sd">        |       |_ &lt;picklefile of chatroom.session&gt;</span>
+<span class="sd">        |</span>
+<span class="sd">        |_ &lt;chat_id2&gt;</span>
+<span class="sd">            |_ ...</span>
+<span class="sd">        ```</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            save_root: The root directory to save to.</span>
+<span class="sd">            remove_old: If set, the previous content of the root directory</span>
+<span class="sd">                will be wiped before dumping.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">save_root</span><span class="p">,</span> <span class="n">Path</span><span class="p">):</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">save_root</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_root</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">remove_old</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+                    <span class="k">continue</span>
+
+                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">path</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">chatroom</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">chatrooms</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+            <span class="n">datapath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;data.json&quot;</span>
+            <span class="n">messagepath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span>
+            <span class="n">picklepath</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">datafile</span><span class="p">:</span>
+                <span class="c1"># TODO: Change this once there is proper support for users</span>
+                <span class="n">users</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">username</span><span class="p">}]</span>
+
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;chatroomID&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">uid</span><span class="p">,</span>
+                        <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+                        <span class="s2">&quot;chatroom_name&quot;</span><span class="p">:</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                        <span class="s2">&quot;users&quot;</span><span class="p">:</span> <span class="n">users</span><span class="p">,</span>
+                        <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">asdict</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">channels</span><span class="p">],</span>
+                    <span class="p">},</span>
+                    <span class="n">datafile</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">messagepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">max_msg_count</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">[:</span><span class="n">max_msg_count</span><span class="p">]</span>
+
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">([</span><span class="n">asdict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">],</span> <span class="n">messagefile</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">chatroom</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">picklefile</span><span class="p">)</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>Dumps all chatrooms to the given save_root.</p>
+
+<p>Each dump will have the following structure:</p>
+
+<pre><code>|_ &lt;chat_id1&gt;
+|   |_ data.json
+|   |   |_ chatroomID: &lt;value&gt;
+|   |   |_ url: &lt;value&gt;
+|   |   |_ chatroom_name: &lt;value&gt;
+|   |   |_ users: &lt;value&gt;
+|   |   |_ channels: &lt;value&gt;
+|   |   |_ users: &lt;value&gt;
+|   |
+|   |_ messages.json
+|   |   |_ &lt;list of chatroom.messages&gt;
+|   |
+|   |_ session.pickle
+|       |_ &lt;picklefile of chatroom.session&gt;
+|
+|_ &lt;chat_id2&gt;
+    |_ ...
+</code></pre>
+
+<h6 id="args">Args</h6>
+
+<ul>
+<li><strong>save_root:</strong>  The root directory to save to.</li>
+<li><strong>remove_old:</strong>  If set, the previous content of the root directory
+will be wiped before dumping.</li>
+</ul>
 </div>
 
 
@@ -1834,6 +2294,11 @@ objects (<code><a href="#Chatroom">Chatroom</a></code>-s) that do all the dirty 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">invite</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">uid</span><span class="o">=</span><span class="n">invite</span><span class="o">.</span><span class="n">chatroom_id</span><span class="p">)</span>
+
+        <span class="c1"># Subscribe chatroom to all global events we are subscribed to</span>
+        <span class="k">for</span> <span class="n">event</span><span class="p">,</span> <span class="n">callback</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_listeners</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">chat</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">callback</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">chat</span><span class="o">.</span><span class="n">create_from_invite</span><span class="p">(</span><span class="n">invite</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Creation failed, but error was captured</span>
             <span class="k">return</span> <span class="kc">None</span>
@@ -2143,26 +2608,6 @@ of <code>target</code>.</li>
         <span class="bp">self</span><span class="o">.</span><span class="n">event_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_update_thread_name</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_initialize_from_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Initializes data of chatroom from a response dict.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            response: A dictionary of Teahaz server response.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroom_name&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroomID&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;users&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;username&quot;</span><span class="p">]</span>
-
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">endpoints</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update_thread_name</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_update_channels</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">Channel</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]]</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_is_server_side</span> <span class="o">=</span> <span class="kc">True</span>
-
     <span class="k">def</span> <span class="nf">_update_channels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Channel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Updates channels available to the user.&quot;&quot;&quot;</span>
 
@@ -2274,6 +2719,26 @@ of <code>target</code>.</li>
 
         <span class="k">return</span> <span class="n">b64decode</span><span class="p">(</span><span class="n">message</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">initialize_from_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initializes data of chatroom from a response dict.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            response: A dictionary of Teahaz server response.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroom_name&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroomID&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;users&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;username&quot;</span><span class="p">]</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">endpoints</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_thread_name</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_channels</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">Channel</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_server_side</span> <span class="o">=</span> <span class="kc">True</span>
+
     <span class="k">def</span> <span class="nf">subscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">Event</span><span class="p">,</span> <span class="n">callback</span><span class="p">:</span> <span class="n">EventCallback</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Start listening for and event and run callback when it occurs.</span>
 
@@ -2320,7 +2785,7 @@ of <code>target</code>.</li>
             <span class="c1"># Creation did not succeed, but error was captured</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span>
 
     <span class="k">def</span> <span class="nf">create_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Channel</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -2408,7 +2873,7 @@ of <code>target</code>.</li>
         <span class="k">if</span> <span class="n">response</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span>
 
@@ -2421,7 +2886,8 @@ of <code>target</code>.</li>
 
         <span class="n">users</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span>
             <span class="s2">&quot;get&quot;</span><span class="p">,</span>
-            <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span><span class="p">},</span>
+            <span class="n">url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoints</span><span class="o">.</span><span class="n">users</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">username</span><span class="p">},</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">users</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -2523,7 +2989,7 @@ of <code>target</code>.</li>
         <span class="n">content</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">],</span>
         <span class="n">channel</span><span class="p">:</span> <span class="n">Channel</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">reply_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Message</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Sends a message.</span>
 
 <span class="sd">        Args:</span>
@@ -2574,7 +3040,12 @@ of <code>target</code>.</li>
 
         <span class="k">if</span> <span class="n">sent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">sent</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_notify</span><span class="p">(</span><span class="n">Event</span><span class="o">.</span><span class="n">MSG_SENT</span><span class="p">,</span> <span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">sent</span><span class="p">))</span>
+            <span class="n">message_out</span> <span class="o">=</span> <span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">sent</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_notify</span><span class="p">(</span><span class="n">Event</span><span class="o">.</span><span class="n">MSG_SENT</span><span class="p">,</span> <span class="n">message_out</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">message_out</span>
+
+        <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 
         </details>
@@ -2656,6 +3127,50 @@ of <code>target</code>.</li>
 
 <p>Every argument except URL is optional. This object should usually
 be instanced within the module, not by outside code.</p>
+</div>
+
+
+                            </div>
+                            <div id="Chatroom.initialize_from_response" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Chatroom.initialize_from_response">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">initialize_from_response</span><span class="signature">(self, response: dict) -&gt; None</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">initialize_from_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Initializes data of chatroom from a response dict.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            response: A dictionary of Teahaz server response.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroom_name&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;chatroomID&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;users&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;username&quot;</span><span class="p">]</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">endpoints</span><span class="o">.</span><span class="n">uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_thread_name</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_channels</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">Channel</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="n">response</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_server_side</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+
+        </details>
+
+            <div class="docstring"><p>Initializes data of chatroom from a response dict.</p>
+
+<h6 id="args">Args</h6>
+
+<ul>
+<li><strong>response:</strong>  A dictionary of Teahaz server response.</li>
+</ul>
 </div>
 
 
@@ -2763,7 +3278,7 @@ be instanced within the module, not by outside code.</p>
             <span class="c1"># Creation did not succeed, but error was captured</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span>
 </pre></div>
 
@@ -2953,7 +3468,7 @@ longer be valid.</li>
         <span class="k">if</span> <span class="n">response</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialize_from_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span>
 </pre></div>
@@ -2998,7 +3513,8 @@ longer be valid.</li>
 
         <span class="n">users</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span>
             <span class="s2">&quot;get&quot;</span><span class="p">,</span>
-            <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uid</span><span class="p">},</span>
+            <span class="n">url</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoints</span><span class="o">.</span><span class="n">users</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">username</span><span class="p">},</span>
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">users</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -3248,7 +3764,7 @@ longer be valid.</li>
     content: Union[str, bytes],
     channel: <a href="dataclasses.html#Channel">teahaz.dataclasses.Channel</a> | None = None,
     reply_id: str | None = None
-) -&gt; None</span>:
+) -&gt; <a href="dataclasses.html#Message">teahaz.dataclasses.Message</a> | None</span>:
     </div>
 
                 <details>
@@ -3258,7 +3774,7 @@ longer be valid.</li>
         <span class="n">content</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">],</span>
         <span class="n">channel</span><span class="p">:</span> <span class="n">Channel</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">reply_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Message</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Sends a message.</span>
 
 <span class="sd">        Args:</span>
@@ -3309,7 +3825,12 @@ longer be valid.</li>
 
         <span class="k">if</span> <span class="n">sent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">sent</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;ascii&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_notify</span><span class="p">(</span><span class="n">Event</span><span class="o">.</span><span class="n">MSG_SENT</span><span class="p">,</span> <span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">sent</span><span class="p">))</span>
+            <span class="n">message_out</span> <span class="o">=</span> <span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">sent</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_notify</span><span class="p">(</span><span class="n">Event</span><span class="o">.</span><span class="n">MSG_SENT</span><span class="p">,</span> <span class="n">message_out</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">message_out</span>
+
+        <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 
         </details>

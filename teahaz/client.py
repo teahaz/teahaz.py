@@ -694,7 +694,7 @@ class Chatroom:
         content: Union[str, bytes],
         channel: Channel | None = None,
         reply_id: str | None = None,
-    ) -> None:
+    ) -> Message | None:
         """Sends a message.
 
         Args:
@@ -745,7 +745,12 @@ class Chatroom:
 
         if sent is not None:
             sent["data"] = content.decode("ascii")
-            self._notify(Event.MSG_SENT, Message.from_dict(sent))
+            message_out = Message.from_dict(sent)
+            self._notify(Event.MSG_SENT, message_out)
+
+            return message_out
+
+        return None
 
 
 class Teacup:

@@ -119,6 +119,7 @@ class EndpointContainer:
         "messages": "{base}/messages/{chatroom_id}",
         "channels": "{base}/channels/{chatroom_id}",
         "invites": "{base}/invites/{chatroom_id}",
+        "users": "{base}/users/{chatroom_id}",
     }
 
     def __init__(self, url: str, uid: str | None = None) -> None:
@@ -592,7 +593,8 @@ class Chatroom:
 
         users = self._request(
             "get",
-            data={"username": self.uid},
+            url=self.endpoints.users,
+            headers={"username": self.username},
         )
 
         if users is None:

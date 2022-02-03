@@ -314,26 +314,6 @@ class Chatroom:
         self.event_thread.start()
         self._update_thread_name()
 
-    def _initialize_from_response(self, response: dict) -> None:
-        """Initializes data of chatroom from a response dict.
-
-        Args:
-            response: A dictionary of Teahaz server response.
-        """
-
-        self.name = response["chatroom_name"]
-        self.uid = response["chatroomID"]
-        self.username = response["users"][0]["username"]
-
-        assert self.uid is not None
-        self.endpoints.uid = self.uid
-        self._update_thread_name()
-
-        self._update_channels(
-            [Channel.from_dict(channel) for channel in response["channels"]]
-        )
-        self._is_server_side = True
-
     def _update_channels(self, channels: list[Channel] | None = None) -> None:
         """Updates channels available to the user."""
 
@@ -445,6 +425,26 @@ class Chatroom:
 
         return b64decode(message).decode("ascii")
 
+    def initialize_from_response(self, response: dict) -> None:
+        """Initializes data of chatroom from a response dict.
+
+        Args:
+            response: A dictionary of Teahaz server response.
+        """
+
+        self.name = response["chatroom_name"]
+        self.uid = response["chatroomID"]
+        self.username = response["users"][0]["username"]
+
+        assert self.uid is not None
+        self.endpoints.uid = self.uid
+        self._update_thread_name()
+
+        self._update_channels(
+            [Channel.from_dict(channel) for channel in response["channels"]]
+        )
+        self._is_server_side = True
+
     def subscribe(self, event: Event, callback: EventCallback) -> None:
         """Start listening for and event and run callback when it occurs.
 
@@ -491,7 +491,7 @@ class Chatroom:
             # Creation did not succeed, but error was captured
             return None
 
-        self._initialize_from_response(response)
+        self.initialize_from_response(response)
         return self
 
     def create_channel(self, name: str) -> Channel | None:
@@ -579,7 +579,7 @@ class Chatroom:
         if response is None:
             return None
 
-        self._initialize_from_response(response)
+        self.initialize_from_response(response)
 
         return self
 

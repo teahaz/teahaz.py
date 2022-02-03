@@ -1,11 +1,17 @@
 """The module containing the main objects for the Teahaz API wrapper."""
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, too-many-lines
 
 from __future__ import annotations
 
+import os
+import json
+import pickle
+import shutil
+from pathlib import Path
 from enum import Enum, auto
 from threading import Thread
+from dataclasses import asdict
 from time import sleep, time as epoch
 from base64 import b64encode, b64decode
 from typing import Callable, Any, Union
@@ -778,6 +784,125 @@ class Teacup:
         self.chatrooms: list[Chatroom] = []
         self._global_listeners: dict[Event, EventCallback] = {}
 
+    @classmethod
+    def from_dump(cls, save_root: str | Path) -> Teacup:
+        """Restore a dump."""
+
+        cup = cls()
+        for directory in os.listdir(save_root):
+            dirpath = Path(save_root) / directory
+
+            if not dirpath.is_dir():
+                continue
+
+            with open(dirpath / "data.json", "r", encoding="utf-8") as datafile:
+                data = json.load(datafile)
+
+            with open(dirpath / "messages.json", "r", encoding="utf-8") as messagefile:
+                messages = json.load(messagefile)
+
+            with open(dirpath / "session.pickle", "rb", encoding="utf-8") as picklefile:
+                session = pickle.load(picklefile)
+
+            chat = Chatroom(data["url"], session=session)
+            for channel in data["channels"]:
+                channel["channelID"] = channel["uid"]
+
+            for message in messages:
+                message["messageID"] = message["uid"]
+                message["time"] = message["send_time"]
+                message["type"] = message["message_type"]
+                message["channelID"] = message["channel_id"]
+
+            chat.messages = [Message.from_dict(msg) for msg in messages]
+            chat.initialize_from_response(data)
+
+            cup.chatrooms.append(chat)
+
+        return cup
+
+    def dump_to(
+        self,
+        save_root: str | Path,
+        remove_old: bool = True,
+        max_msg_count: int | None = None,
+    ) -> None:
+        """Dumps all chatrooms to the given save_root.
+
+        Each dump will have the following structure:
+        ```
+        save_root
+        |_ <chat_id1>
+        |   |_ data.json
+        |   |   |_ chatroomID: <value>
+        |   |   |_ url: <value>
+        |   |   |_ chatroom_name: <value>
+        |   |   |_ users: <value>
+        |   |   |_ channels: <value>
+        |   |   |_ users: <value>
+        |   |
+        |   |_ messages.json
+        |   |   |_ <list of chatroom.messages>
+        |   |
+        |   |_ session.pickle
+        |       |_ <picklefile of chatroom.session>
+        |
+        |_ <chat_id2>
+            |_ ...
+        ```
+
+        Args:
+            save_root: The root directory to save to.
+            remove_old: If set, the previous content of the root directory
+                will be wiped before dumping.
+        """
+
+        if isinstance(save_root, Path):
+            root = save_root
+        else:
+            root = Path(save_root)
+
+        if remove_old:
+            for path in os.listdir(root):
+                if not os.path.isdir(path):
+                    continue
+
+                shutil.rmtree(root / path)
+
+        for chatroom in self.chatrooms:
+            assert chatroom.uid is not None
+
+            datapath = root / chatroom.uid / "data.json"
+            messagepath = root / chatroom.uid / "messages.json"
+            picklepath = root / chatroom.uid / "session.pickle"
+
+            if not os.path.exists(root / chatroom.uid):
+                os.mkdir(root / chatroom.uid)
+
+            with open(datapath, "w", encoding="utf-8") as datafile:
+                # TODO: Change this once there is proper support for users
+                users = [{"username": chatroom.username}]
+
+                json.dump(
+                    {
+                        "chatroomID": chatroom.uid,
+                        "url": chatroom.url,
+                        "chatroom_name": chatroom.name,
+                        "users": users,
+                        "channels": [asdict(channel) for channel in chatroom.channels],
+                    },
+                    datafile,
+                )
+
+            with open(messagepath, "w", encoding="utf-8") as messagefile:
+                if max_msg_count is not None:
+                    chatroom.messages = chatroom.messages[:max_msg_count]
+
+                json.dump([asdict(msg) for msg in chatroom.messages], messagefile)
+
+            with open(picklepath, "wb", encoding="utf-8") as picklefile:
+                pickle.dump(chatroom.session, picklefile)
+
     def get_threads(self) -> list[str]:
         """Gets names of all chatroom threads."""
 
@@ -872,6 +997,11 @@ class Teacup:
         """
 
         chat = Chatroom(url=invite.url, uid=invite.chatroom_id)
+
+        # Subscribe chatroom to all global events we are subscribed to
+        for event, callback in self._global_listeners.items():
+            chat.subscribe(event, callback)
+
         if chat.create_from_invite(invite, username, password) is None:
             # Creation failed, but error was captured
             return None

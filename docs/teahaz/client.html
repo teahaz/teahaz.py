@@ -37,6 +37,12 @@
                                 <a class="variable" href="#Event.ERROR">ERROR</a>
                         </li>
                         <li>
+                                <a class="variable" href="#Event.NETWORK_EXCEPTION">NETWORK_EXCEPTION</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#Event.MSG_SENT">MSG_SENT</a>
+                        </li>
+                        <li>
                                 <a class="variable" href="#Event.MSG_NEW">MSG_NEW</a>
                         </li>
                         <li>
@@ -46,7 +52,7 @@
                                 <a class="variable" href="#Event.MSG_SYS">MSG_SYS</a>
                         </li>
                         <li>
-                                <a class="variable" href="#Event.MSG_SENT">MSG_SENT</a>
+                                <a class="variable" href="#Event.MSG_SYS_SILENT">MSG_SYS_SILENT</a>
                         </li>
                         <li>
                                 <a class="variable" href="#Event.USER_JOIN">USER_JOIN</a>
@@ -56,12 +62,6 @@
                         </li>
                         <li>
                                 <a class="variable" href="#Event.SERVER_INFO">SERVER_INFO</a>
-                        </li>
-                        <li>
-                                <a class="variable" href="#Event.MSG_SYS_SILENT">MSG_SYS_SILENT</a>
-                        </li>
-                        <li>
-                                <a class="variable" href="#Event.NETWORK_EXCEPTION">NETWORK_EXCEPTION</a>
                         </li>
                 </ul>
 
@@ -222,6 +222,26 @@
 <span class="sd">        request_args: A dictionary of arguments sent with the request.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="n">NETWORK_EXCEPTION</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;A network exception has occured.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        exception: The Exception instance that occured.</span>
+<span class="sd">        method: The HTTP method used.</span>
+<span class="sd">        request_args: A dictionary of arguments sent with the request.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">MSG_SENT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;A message has been sent.</span>
+
+<span class="sd">    This can be used by clients to show the outgoing message,</span>
+<span class="sd">    before the server receives and sends it back.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        message: The **locally instanced** `Message`. Only use this while the real</span>
+<span class="sd">            message has not yet arrived.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">MSG_NEW</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
     <span class="sd">&quot;&quot;&quot;A new message has arrived.</span>
 
@@ -243,15 +263,11 @@
 <span class="sd">        message: The system message.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">MSG_SENT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-    <span class="sd">&quot;&quot;&quot;A message has been sent.</span>
-
-<span class="sd">    This can be used by clients to show the outgoing message,</span>
-<span class="sd">    before the server receives and sends it back.</span>
+    <span class="n">MSG_SYS_SILENT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;A silent system message has arrived. These should normally not be displayed.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        message: The **locally instanced** `Message`. Only use this while the real</span>
-<span class="sd">            message has not yet arrived.</span>
+<span class="sd">        message: The silent system message.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">USER_JOIN</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
@@ -270,20 +286,6 @@
 
     <span class="n">SERVER_INFO</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
     <span class="sd">&quot;&quot;&quot;Some server information has changed.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        **Not yet implemented.**</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">MSG_SYS_SILENT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-    <span class="sd">&quot;&quot;&quot;A silent system message has arrived. These should normally not be displayed.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        **Not yet implemented.**</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">NETWORK_EXCEPTION</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-    <span class="sd">&quot;&quot;&quot;A network exception has occured.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        **Not yet implemented.**</span>
@@ -409,11 +411,9 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">response</span> <span class="o">=</span> <span class="n">method</span><span class="p">(</span><span class="o">**</span><span class="n">req_args</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
-            <span class="c1"># This should just raise a custom Exception.</span>
             <span class="k">if</span> <span class="n">exception_handler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">exception_handler</span><span class="p">(</span><span class="n">exception</span><span class="p">,</span> <span class="n">method_name</span><span class="p">,</span> <span class="n">req_args</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 
-                <span class="c1"># maybe this could return CapturedException/CapturedError?</span>
                 <span class="k">return</span> <span class="kc">None</span>
 
             <span class="k">raise</span> <span class="n">exception</span>
@@ -977,7 +977,7 @@
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
                 <span class="n">messages</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">messagefile</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
                 <span class="n">session</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">picklefile</span><span class="p">)</span>
 
             <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">],</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
@@ -1076,7 +1076,7 @@
 
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">([</span><span class="n">asdict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">],</span> <span class="n">messagefile</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
                 <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">chatroom</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">picklefile</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_threads</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -1252,6 +1252,26 @@
 <span class="sd">        request_args: A dictionary of arguments sent with the request.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="n">NETWORK_EXCEPTION</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;A network exception has occured.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        exception: The Exception instance that occured.</span>
+<span class="sd">        method: The HTTP method used.</span>
+<span class="sd">        request_args: A dictionary of arguments sent with the request.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">MSG_SENT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;A message has been sent.</span>
+
+<span class="sd">    This can be used by clients to show the outgoing message,</span>
+<span class="sd">    before the server receives and sends it back.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        message: The **locally instanced** `Message`. Only use this while the real</span>
+<span class="sd">            message has not yet arrived.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">MSG_NEW</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
     <span class="sd">&quot;&quot;&quot;A new message has arrived.</span>
 
@@ -1273,15 +1293,11 @@
 <span class="sd">        message: The system message.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">MSG_SENT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-    <span class="sd">&quot;&quot;&quot;A message has been sent.</span>
-
-<span class="sd">    This can be used by clients to show the outgoing message,</span>
-<span class="sd">    before the server receives and sends it back.</span>
+    <span class="n">MSG_SYS_SILENT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;A silent system message has arrived. These should normally not be displayed.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        message: The **locally instanced** `Message`. Only use this while the real</span>
-<span class="sd">            message has not yet arrived.</span>
+<span class="sd">        message: The silent system message.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">USER_JOIN</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
@@ -1300,20 +1316,6 @@
 
     <span class="n">SERVER_INFO</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
     <span class="sd">&quot;&quot;&quot;Some server information has changed.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        **Not yet implemented.**</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">MSG_SYS_SILENT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-    <span class="sd">&quot;&quot;&quot;A silent system message has arrived. These should normally not be displayed.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        **Not yet implemented.**</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">NETWORK_EXCEPTION</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-    <span class="sd">&quot;&quot;&quot;A network exception has occured.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        **Not yet implemented.**</span>
@@ -1345,52 +1347,20 @@
 
 
                             </div>
-                            <div id="Event.MSG_NEW" class="classattr">
-                                            <div class="attr variable"><a class="headerlink" href="#Event.MSG_NEW">#&nbsp;&nbsp</a>
+                            <div id="Event.NETWORK_EXCEPTION" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#Event.NETWORK_EXCEPTION">#&nbsp;&nbsp</a>
 
-        <span class="name">MSG_NEW</span><span class="default_value"> = &lt;<a href="#Event.MSG_NEW">Event.MSG_NEW</a>: 2&gt;</span>
+        <span class="name">NETWORK_EXCEPTION</span><span class="default_value"> = &lt;<a href="#Event.NETWORK_EXCEPTION">Event.NETWORK_EXCEPTION</a>: 2&gt;</span>
     </div>
 
-            <div class="docstring"><p>A new message has arrived.</p>
+            <div class="docstring"><p>A network exception has occured.</p>
 
 <h6 id="args">Args</h6>
 
 <ul>
-<li><strong>message:</strong>  The new <code>Message</code> instance.</li>
-</ul>
-</div>
-
-
-                            </div>
-                            <div id="Event.MSG_DEL" class="classattr">
-                                            <div class="attr variable"><a class="headerlink" href="#Event.MSG_DEL">#&nbsp;&nbsp</a>
-
-        <span class="name">MSG_DEL</span><span class="default_value"> = &lt;<a href="#Event.MSG_DEL">Event.MSG_DEL</a>: 3&gt;</span>
-    </div>
-
-            <div class="docstring"><p>A message was deleted.</p>
-
-<h6 id="args">Args</h6>
-
-<ul>
-<li><strong>message:</strong>  The deleted <code>Message</code> instance.</li>
-</ul>
-</div>
-
-
-                            </div>
-                            <div id="Event.MSG_SYS" class="classattr">
-                                            <div class="attr variable"><a class="headerlink" href="#Event.MSG_SYS">#&nbsp;&nbsp</a>
-
-        <span class="name">MSG_SYS</span><span class="default_value"> = &lt;<a href="#Event.MSG_SYS">Event.MSG_SYS</a>: 4&gt;</span>
-    </div>
-
-            <div class="docstring"><p>A system message has arrived.</p>
-
-<h6 id="args">Args</h6>
-
-<ul>
-<li><strong>message:</strong>  The system message.</li>
+<li><strong>exception:</strong>  The Exception instance that occured.</li>
+<li><strong>method:</strong>  The HTTP method used.</li>
+<li><strong>request_args:</strong>  A dictionary of arguments sent with the request.</li>
 </ul>
 </div>
 
@@ -1399,7 +1369,7 @@
                             <div id="Event.MSG_SENT" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#Event.MSG_SENT">#&nbsp;&nbsp</a>
 
-        <span class="name">MSG_SENT</span><span class="default_value"> = &lt;<a href="#Event.MSG_SENT">Event.MSG_SENT</a>: 5&gt;</span>
+        <span class="name">MSG_SENT</span><span class="default_value"> = &lt;<a href="#Event.MSG_SENT">Event.MSG_SENT</a>: 3&gt;</span>
     </div>
 
             <div class="docstring"><p>A message has been sent.</p>
@@ -1417,10 +1387,78 @@ message has not yet arrived.</li>
 
 
                             </div>
+                            <div id="Event.MSG_NEW" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#Event.MSG_NEW">#&nbsp;&nbsp</a>
+
+        <span class="name">MSG_NEW</span><span class="default_value"> = &lt;<a href="#Event.MSG_NEW">Event.MSG_NEW</a>: 4&gt;</span>
+    </div>
+
+            <div class="docstring"><p>A new message has arrived.</p>
+
+<h6 id="args">Args</h6>
+
+<ul>
+<li><strong>message:</strong>  The new <code>Message</code> instance.</li>
+</ul>
+</div>
+
+
+                            </div>
+                            <div id="Event.MSG_DEL" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#Event.MSG_DEL">#&nbsp;&nbsp</a>
+
+        <span class="name">MSG_DEL</span><span class="default_value"> = &lt;<a href="#Event.MSG_DEL">Event.MSG_DEL</a>: 5&gt;</span>
+    </div>
+
+            <div class="docstring"><p>A message was deleted.</p>
+
+<h6 id="args">Args</h6>
+
+<ul>
+<li><strong>message:</strong>  The deleted <code>Message</code> instance.</li>
+</ul>
+</div>
+
+
+                            </div>
+                            <div id="Event.MSG_SYS" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#Event.MSG_SYS">#&nbsp;&nbsp</a>
+
+        <span class="name">MSG_SYS</span><span class="default_value"> = &lt;<a href="#Event.MSG_SYS">Event.MSG_SYS</a>: 6&gt;</span>
+    </div>
+
+            <div class="docstring"><p>A system message has arrived.</p>
+
+<h6 id="args">Args</h6>
+
+<ul>
+<li><strong>message:</strong>  The system message.</li>
+</ul>
+</div>
+
+
+                            </div>
+                            <div id="Event.MSG_SYS_SILENT" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#Event.MSG_SYS_SILENT">#&nbsp;&nbsp</a>
+
+        <span class="name">MSG_SYS_SILENT</span><span class="default_value"> = &lt;<a href="#Event.MSG_SYS_SILENT">Event.MSG_SYS_SILENT</a>: 7&gt;</span>
+    </div>
+
+            <div class="docstring"><p>A silent system message has arrived. These should normally not be displayed.</p>
+
+<h6 id="args">Args</h6>
+
+<ul>
+<li><strong>message:</strong>  The silent system message.</li>
+</ul>
+</div>
+
+
+                            </div>
                             <div id="Event.USER_JOIN" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#Event.USER_JOIN">#&nbsp;&nbsp</a>
 
-        <span class="name">USER_JOIN</span><span class="default_value"> = &lt;<a href="#Event.USER_JOIN">Event.USER_JOIN</a>: 6&gt;</span>
+        <span class="name">USER_JOIN</span><span class="default_value"> = &lt;<a href="#Event.USER_JOIN">Event.USER_JOIN</a>: 8&gt;</span>
     </div>
 
             <div class="docstring"><p>A new user has joined the chatroom.</p>
@@ -1437,7 +1475,7 @@ message has not yet arrived.</li>
                             <div id="Event.USER_LEAVE" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#Event.USER_LEAVE">#&nbsp;&nbsp</a>
 
-        <span class="name">USER_LEAVE</span><span class="default_value"> = &lt;<a href="#Event.USER_LEAVE">Event.USER_LEAVE</a>: 7&gt;</span>
+        <span class="name">USER_LEAVE</span><span class="default_value"> = &lt;<a href="#Event.USER_LEAVE">Event.USER_LEAVE</a>: 9&gt;</span>
     </div>
 
             <div class="docstring"><p>A user has left the chatroom.</p>
@@ -1454,44 +1492,10 @@ message has not yet arrived.</li>
                             <div id="Event.SERVER_INFO" class="classattr">
                                             <div class="attr variable"><a class="headerlink" href="#Event.SERVER_INFO">#&nbsp;&nbsp</a>
 
-        <span class="name">SERVER_INFO</span><span class="default_value"> = &lt;<a href="#Event.SERVER_INFO">Event.SERVER_INFO</a>: 8&gt;</span>
+        <span class="name">SERVER_INFO</span><span class="default_value"> = &lt;<a href="#Event.SERVER_INFO">Event.SERVER_INFO</a>: 10&gt;</span>
     </div>
 
             <div class="docstring"><p>Some server information has changed.</p>
-
-<h6 id="note">Note</h6>
-
-<blockquote>
-  <p><strong>Not yet implemented.</strong></p>
-</blockquote>
-</div>
-
-
-                            </div>
-                            <div id="Event.MSG_SYS_SILENT" class="classattr">
-                                            <div class="attr variable"><a class="headerlink" href="#Event.MSG_SYS_SILENT">#&nbsp;&nbsp</a>
-
-        <span class="name">MSG_SYS_SILENT</span><span class="default_value"> = &lt;<a href="#Event.MSG_SYS_SILENT">Event.MSG_SYS_SILENT</a>: 9&gt;</span>
-    </div>
-
-            <div class="docstring"><p>A silent system message has arrived. These should normally not be displayed.</p>
-
-<h6 id="note">Note</h6>
-
-<blockquote>
-  <p><strong>Not yet implemented.</strong></p>
-</blockquote>
-</div>
-
-
-                            </div>
-                            <div id="Event.NETWORK_EXCEPTION" class="classattr">
-                                            <div class="attr variable"><a class="headerlink" href="#Event.NETWORK_EXCEPTION">#&nbsp;&nbsp</a>
-
-        <span class="name">NETWORK_EXCEPTION</span><span class="default_value"> = &lt;<a href="#Event.NETWORK_EXCEPTION">Event.NETWORK_EXCEPTION</a>: 10&gt;</span>
-    </div>
-
-            <div class="docstring"><p>A network exception has occured.</p>
 
 <h6 id="note">Note</h6>
 
@@ -1564,7 +1568,7 @@ message has not yet arrived.</li>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
                 <span class="n">messages</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">messagefile</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
                 <span class="n">session</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">picklefile</span><span class="p">)</span>
 
             <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">],</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
@@ -1663,7 +1667,7 @@ message has not yet arrived.</li>
 
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">([</span><span class="n">asdict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">],</span> <span class="n">messagefile</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
                 <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">chatroom</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">picklefile</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_threads</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -1882,7 +1886,7 @@ objects (<code><a href="#Chatroom">Chatroom</a></code>-s) that do all the dirty 
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;messages.json&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">messagefile</span><span class="p">:</span>
                 <span class="n">messages</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">messagefile</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dirpath</span> <span class="o">/</span> <span class="s2">&quot;session.pickle&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
                 <span class="n">session</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">picklefile</span><span class="p">)</span>
 
             <span class="n">chat</span> <span class="o">=</span> <span class="n">Chatroom</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">],</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
@@ -2004,7 +2008,7 @@ objects (<code><a href="#Chatroom">Chatroom</a></code>-s) that do all the dirty 
 
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">([</span><span class="n">asdict</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">chatroom</span><span class="o">.</span><span class="n">messages</span><span class="p">],</span> <span class="n">messagefile</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">picklepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">picklefile</span><span class="p">:</span>
                 <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">chatroom</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">picklefile</span><span class="p">)</span>
 </pre></div>
 
@@ -2520,11 +2524,9 @@ of <code>target</code>.</li>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">response</span> <span class="o">=</span> <span class="n">method</span><span class="p">(</span><span class="o">**</span><span class="n">req_args</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exception</span><span class="p">:</span>
-            <span class="c1"># This should just raise a custom Exception.</span>
             <span class="k">if</span> <span class="n">exception_handler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">exception_handler</span><span class="p">(</span><span class="n">exception</span><span class="p">,</span> <span class="n">method_name</span><span class="p">,</span> <span class="n">req_args</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 
-                <span class="c1"># maybe this could return CapturedException/CapturedError?</span>
                 <span class="k">return</span> <span class="kc">None</span>
 
             <span class="k">raise</span> <span class="n">exception</span>

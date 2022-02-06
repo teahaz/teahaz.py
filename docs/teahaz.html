@@ -21,6 +21,15 @@
                         <input type="search" placeholder="Search..." role="searchbox" aria-label="search"
                                pattern=".+" required>
 
+                    <h2>Contents</h2>
+                    <ul>
+  <li><a href="#getting-started">Getting started</a>
+  <ul>
+    <li><a href="#library-architecture">Library Architecture</a></li>
+    <li><a href="#gaining-access-to-a-chatroom">Gaining access to a chatroom</a></li>
+  </ul></li>
+</ul>
+
 
                     <h2>Submodules</h2>
                     <ul>
@@ -44,6 +53,106 @@
 teahaz    </h1>
 
                         <div class="docstring"><p>The official Python API wrapper for the Teahaz messaging platform.</p>
+
+<h1 id="getting-started">Getting started</h1>
+
+<p>The goal of this library is to provide a simple to use interface for the Teahaz
+API. As such, getting started should be relatively easy.</p>
+
+<h2 id="library-architecture">Library Architecture</h2>
+
+<p>Most interactions with <code><a href="#py">teahaz.py</a></code> are done through the <code><a href="#clients.Chatroom">teahaz.clients.Chatroom</a></code>
+object. This is the object that represents each chatroom, allows assigning callbacks
+to events and sending messages, to name a few things.</p>
+
+<p>Acquiring and managing chatrooms is handled by the <code><a href="#clients.Teacup">teahaz.clients.Teacup</a></code> class.
+This class _should_ usually be the entrypoint into the library. It has methods, such
+as <code><a href="#clients.Teacup.login">teahaz.clients.Teacup.login</a></code> and <code><a href="#clients.Teacup.create_chatroom">teahaz.clients.Teacup.create_chatroom</a></code> that
+will provide you with logged in chatroom instances. It also has a helper method, 
+<code><a href="#clients.Teacup.threaded">teahaz.clients.Teacup.threaded</a></code>, which returns a threaded version of the given
+callable, preserving the original signature.</p>
+
+<p>This might be a good point to mention that this libary uses threads over async for
+concurrency.</p>
+
+<h2 id="gaining-access-to-a-chatroom">Gaining access to a chatroom</h2>
+
+<p>Before you can do anything fancy, you need access to a chatroom. Servers are
+organized into isolated containers called chatrooms, which are then further
+segmented into channels. You can learn more about this over at the <a href="https://github.com/teahaz/teahaz-server/">server-docs</a>.</p>
+
+<p>In order to interact in a chatroom, one needs to somehow get in. There is a couple
+of ways to do this.</p>
+
+<h3 id="creating-your-own-chatroom">Creating your own chatroom</h3>
+
+<p>The most nuclear option is to create your own chatroom on the server. You will likely
+be limited to doing this on your own server instance, or one where the owner trusts
+you.</p>
+
+<p>To do this, take a look at the following code snippet:</p>
+
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">teahaz</span> <span class="kn">import</span> <span class="n">Teacup</span>
+
+<span class="n">cup</span> <span class="o">=</span> <span class="n">Teacup</span><span class="p">()</span>
+<span class="n">chat</span> <span class="o">=</span> <span class="n">cup</span><span class="o">.</span><span class="n">create_chatroom</span><span class="p">(</span>
+    <span class="s2">&quot;https://example.com&quot;</span><span class="p">,</span> 
+    <span class="s2">&quot;My New Chatroom&quot;</span><span class="p">,</span> 
+    <span class="s2">&quot;username&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;password&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<p>This will give you a <code><a href="teahaz/client.html#Chatroom">teahaz.client.Chatroom</a></code> instance logged into the new chatroom.
+This new chatroom will have the given user registered, as well as made the chatroom
+"owner".</p>
+
+<h3 id="using-an-invite">Using an invite</h3>
+
+<p>The much easier (and more common) way to get into a chatroom is by using an invite. This
+allows you to "register" a new account to the chatroom. Creating invites is once again
+permission limited, and invites have both an expiration date and maximum use count.</p>
+
+<p>To create an invite, you can use the <code>dataclasses.asdict</code> method on a <code><a href="teahaz/dataclasses.html#Invite">teahaz.dataclasses.Invite</a></code>:</p>
+
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">asdict</span>
+
+<span class="n">chat</span> <span class="o">=</span> <span class="o">...</span> <span class="c1"># Your already defined chatroom</span>
+
+<span class="c1"># Create an invite expiring in 1 hour (60 seconds * 60), with 10 uses</span>
+<span class="n">invite</span> <span class="o">=</span> <span class="n">chat</span><span class="o">.</span><span class="n">create_invite</span><span class="p">(</span><span class="n">uses</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="mi">3600</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;chat.inv&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">invfile</span><span class="p">:</span>
+    <span class="n">invfile</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">asdict</span><span class="p">(</span><span class="n">invite</span><span class="p">)))</span>
+</code></pre></div>
+
+<p>Once you have your invite as a file, you need to load and use it:</p>
+
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">teahaz</span> <span class="kn">import</span> <span class="n">Teacup</span><span class="p">,</span> <span class="n">Invite</span>
+
+<span class="n">cup</span> <span class="o">=</span> <span class="n">Teacup</span><span class="p">()</span>
+
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;chat.inv&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">invfile</span><span class="p">:</span>
+    <span class="n">invite</span> <span class="o">=</span> <span class="n">Invite</span><span class="o">.</span><span class="n">from_data</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">invfile</span><span class="p">))</span>
+
+<span class="n">chat</span> <span class="o">=</span> <span class="n">cup</span><span class="o">.</span><span class="n">use_invite</span><span class="p">(</span><span class="n">invite</span><span class="p">,</span> <span class="s2">&quot;username&quot;</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Note that <strong>from_data</strong> is a standard method for all of <code><a href="teahaz/dataclasses.html">teahaz.dataclasses</a></code>. You rarely
+need to construct them yourself, but the method is used internally as well.</p>
+
+<h3 id="logging-in">Logging in</h3>
+
+<p>Once either of the above steps have been completed prior, you can also simply log into the
+chatroom to get a reference to it:</p>
+
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">teahaz</span> <span class="kn">import</span> <span class="n">Teacup</span>
+
+<span class="n">chat</span> <span class="o">=</span> <span class="n">cup</span><span class="o">.</span><span class="n">login</span><span class="p">(</span><span class="s2">&quot;https://example.com&quot;</span><span class="p">,</span> <span class="s2">&quot;username&quot;</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">)</span>
+</code></pre></div>
 </div>
 
                         <details>

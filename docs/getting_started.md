@@ -104,3 +104,99 @@ from teahaz import Teacup
 
 chat = cup.login("https://example.com", "username", "password")
 ```
+
+**All below examples assume any of these sections of code have been executed.** Thus, we
+already have both `cup` and `chat` defined.
+
+## Using a Chatroom object
+
+As mentioned above, most interaction with the API is done inside a Chatroom instance.
+
+### The event system
+
+Chatrooms can listen to certain happenings on the server. These are listed and documented
+inside the `teahaz.client.Event` enum. The signature of each callback is defined there as
+well.
+
+Note that the below examples use lambda functions for brevity: they should generally be
+avoided in "real" code.
+
+You can subscribe a specific chatroom to an event using the `teahaz.client.Chatroom.subscribe`
+method:
+
+```python3
+from teahaz import Event
+
+chat.subscribe(Event.MSG_NEW, lambda message: print("New message!", message))
+```
+
+If you want all current **and** future chatrooms to handle certain events in a uniform way,
+you can use `teahaz.client.Teacup.subscribe_all`. This method takes the same argument, but
+calls the subscribe method on each current & future chatroom.
+
+This is useful to implement universal error handling:
+
+```python3
+from teahaz import Event
+cup.subscribe_all(Event.ERROR, lambda res, meth, args: print("Error!", res, meth, args))
+```
+
+### Sending messages
+
+Sending messages is as easy as calling `teahaz.clients.Chatroom.send` with a file or string
+argument. If the `channel` parameter is not provided `Chatroom.active_channel` is used to
+send the message.  When it _is_ provided, `active_channel` is updated to the given
+`teahaz.clients.Channel` instance, and the message is sent using it instead.
+
+```python3
+chat.subscribe(Event.MSG_NEW, lambda msg: print(f"{chat.channel.name}: {msg.data}"))
+secondary = chat.create_channel("secondary")
+
+# Prints: "default: First message"
+chat.send("First message")
+
+# Prints: "secondary: Second message"
+chat.send("Second message", channel=secondary)
+
+# Prints: "secondary: Third message"
+chat.send("Third message")
+```
+
+
+## Implementing a simple bot
+
+The teacup class was partially purpose built to be easy to use for bots. As such, for most
+purposes you can simpy subclass it and add your own behaviour.
+
+Here is a fully functioning implementation:
+
+```python3
+from teahaz import Teacup, Event, Message
+
+class TeahazBot(Teacup):
+    
+    def __init__(self) -> None:
+        super().__init__()
+
+        # We thread the message callback to allow parallel execution
+        self.subscribe_all(Event.MSG_NEW, self.threaded(self.on_message))
+
+    def find_chatroom(self, message: Message) -> Chatroom:
+        for chatroom in self.chatroom:
+            if chatroom.uid == message.chatroom_id:
+                return chatroom
+
+        raise ValueError(f"Could not find chatroom belonging to {message}")
+
+    def on_message(self, message: Message) -> None:
+        chatroom = self.find_chatroom(message)
+
+        # Don't trigger on messages sent by the bot
+        if chatroom.username == message.username:
+            return
+
+        chatroom.send("This is my response!", reply_id=message.uid)
+```
+
+Once the bot has been constructed, you can call `login`, `create_chatroom` and all other
+methods on it the same way a normal Teacup would allow you to.

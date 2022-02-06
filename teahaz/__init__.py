@@ -1,7 +1,7 @@
 """The official Python API wrapper for the Teahaz messaging platform.
 
-Since there is currently no getting started guide, use the navigation panel
-on the left to find what you need."""
+.. include:: ../docs/getting_started.md
+"""
 
 from .types import *
 from .client import *

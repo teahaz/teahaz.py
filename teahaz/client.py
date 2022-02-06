@@ -46,6 +46,26 @@ class Event(Enum):
         request_args: A dictionary of arguments sent with the request.
     """
 
+    NETWORK_EXCEPTION = auto()
+    """A network exception has occured.
+
+    Args:
+        exception: The Exception instance that occured.
+        method: The HTTP method used.
+        request_args: A dictionary of arguments sent with the request.
+    """
+
+    MSG_SENT = auto()
+    """A message has been sent.
+
+    This can be used by clients to show the outgoing message,
+    before the server receives and sends it back.
+
+    Args:
+        message: The **locally instanced** `Message`. Only use this while the real
+            message has not yet arrived.
+    """
+
     MSG_NEW = auto()
     """A new message has arrived.
 
@@ -67,15 +87,11 @@ class Event(Enum):
         message: The system message.
     """
 
-    MSG_SENT = auto()
-    """A message has been sent.
-
-    This can be used by clients to show the outgoing message,
-    before the server receives and sends it back.
+    MSG_SYS_SILENT = auto()
+    """A silent system message has arrived. These should normally not be displayed.
 
     Args:
-        message: The **locally instanced** `Message`. Only use this while the real
-            message has not yet arrived.
+        message: The silent system message.
     """
 
     USER_JOIN = auto()
@@ -94,20 +110,6 @@ class Event(Enum):
 
     SERVER_INFO = auto()
     """Some server information has changed.
-
-    Note:
-        **Not yet implemented.**
-    """
-
-    MSG_SYS_SILENT = auto()
-    """A silent system message has arrived. These should normally not be displayed.
-
-    Note:
-        **Not yet implemented.**
-    """
-
-    NETWORK_EXCEPTION = auto()
-    """A network exception has occured.
 
     Note:
         **Not yet implemented.**
@@ -233,11 +235,9 @@ class Chatroom:
         try:
             response = method(**req_args)
         except Exception as exception:
-            # This should just raise a custom Exception.
             if exception_handler is not None:
                 exception_handler(exception, method_name, req_args)  # type: ignore
 
-                # maybe this could return CapturedException/CapturedError?
                 return None
 
             raise exception
@@ -801,7 +801,7 @@ class Teacup:
             with open(dirpath / "messages.json", "r", encoding="utf-8") as messagefile:
                 messages = json.load(messagefile)
 
-            with open(dirpath / "session.pickle", "rb", encoding="utf-8") as picklefile:
+            with open(dirpath / "session.pickle", "rb") as picklefile:
                 session = pickle.load(picklefile)
 
             chat = Chatroom(data["url"], session=session)
@@ -900,7 +900,7 @@ class Teacup:
 
                 json.dump([asdict(msg) for msg in chatroom.messages], messagefile)
 
-            with open(picklepath, "wb", encoding="utf-8") as picklefile:
+            with open(picklepath, "wb") as picklefile:
                 pickle.dump(chatroom.session, picklefile)
 
     def get_threads(self) -> list[str]:

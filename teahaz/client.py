@@ -754,6 +754,7 @@ class Chatroom:
         if sent is not None:
             sent["data"] = content.decode("ascii")
             message_out = Message.from_dict(sent)
+            message_out.is_delivered = False
             self._notify(Event.MSG_SENT, message_out)
 
             return message_out

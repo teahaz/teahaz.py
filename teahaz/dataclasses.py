@@ -60,6 +60,10 @@ class Message:
     username: str | None
     """The sender user's username. Only set in the above circumstances."""
 
+    is_delivered: bool = True
+    """Whether the message has been delivered. Set false for return value of
+    Event.MSG_SENT."""
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Message:
         """Creates a Message from server-data."""

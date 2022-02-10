@@ -28,10 +28,38 @@ from .dataclasses import (
 from .types import EventCallback
 
 __all__ = [
+    "threaded",
     "Event",
     "Teacup",
     "Chatroom",
 ]
+
+
+def threaded(
+    target: Callable[..., Any], callback: Callable[..., Any] | None = None
+) -> Callable[..., None]:
+    """Returns a threaded callable for target.
+
+    Args:
+        target: The callable to thread.
+        callback: The callable that will be called with return value
+            of `target`.
+
+    Returns:
+        A lambda function that runs `target` in a thread, passing its
+        return value to `callback`.
+    """
+
+    def _call_target(*args, **kwargs) -> None:
+        """Calls the target."""
+
+        returned = target(*args, **kwargs)
+        if callback is not None:
+            callback(returned)
+
+    return lambda *args, **kwargs: Thread(
+        target=_call_target, args=args, kwargs=kwargs
+    ).start()
 
 
 class Event(Enum):
@@ -1022,30 +1050,3 @@ class Teacup:
             chatroom.subscribe(event, callback)
 
         self._global_listeners[event] = callback
-
-    @staticmethod
-    def threaded(
-        target: Callable[..., Any], callback: Callable[..., Any] | None = None
-    ) -> Callable[..., None]:
-        """Returns a threaded callable for target.
-
-        Args:
-            target: The callable to thread.
-            callback: The callable that will be called with return value
-                of `target`.
-
-        Returns:
-            A lambda function that runs `target` in a thread, passing its
-            return value to `callback`.
-        """
-
-        def _call_target(*args, **kwargs) -> None:
-            """Calls the target."""
-
-            returned = target(*args, **kwargs)
-            if callback is not None:
-                callback(returned)
-
-        return lambda *args, **kwargs: Thread(
-            target=_call_target, args=args, kwargs=kwargs
-        ).start()

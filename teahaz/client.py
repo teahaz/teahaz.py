@@ -404,7 +404,7 @@ class Chatroom:
             "username": self.username,
             "channelID": channel.uid,
             "count": count,
-            "time": time,
+            "time": time or "0",
         }
 
         messages: list[dict[str, Any]] | None = self._request(
@@ -422,7 +422,9 @@ class Chatroom:
             if not message["type"].startswith("system"):
                 message["data"] = self._decrypt(message["data"])
 
-            instances.append(Message.from_dict(message))
+            msg_instance = Message.from_dict(message)
+            instances.append(msg_instance)
+            channel.messages.append(msg_instance)
 
         return instances
 
@@ -845,6 +847,11 @@ class Teacup:
 
             chat.messages = [Message.from_dict(msg) for msg in messages]
             chat.initialize_from_response(data)
+
+            for channel in chat.channels:
+                for message in chat.messages:
+                    if channel.uid == message.channel_id:
+                        channel.messages.append(message)
 
             cup.chatrooms.append(chat)
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 __all__ = [
     "User",
@@ -98,6 +98,9 @@ class Channel:
 
     permissions: dict[str, bool]
     """A dictionary of permissions the current user has in this channel. WIP."""
+
+    messages: list[Message] = field(default_factory=list)
+    """All stored messages within this channel."""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Channel:

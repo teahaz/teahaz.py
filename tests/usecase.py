@@ -115,7 +115,7 @@ def message_test(chat: Chatroom, count: int = 100) -> None:
     for i in range(count):
         message = "this is message " + str(i)
         sent_msg = chat.send(message)
-        sent.append((sent_msg["messageID"], sent_msg["data"]))
+        sent.append((sent_msg.uid, sent_msg.data))
 
     # we need to wait until the next loop iteration
     sleep(chat.interval)
